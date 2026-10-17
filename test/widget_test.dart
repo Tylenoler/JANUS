@@ -128,7 +128,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const JanusApp());
 
-    await tester.tap(find.byTooltip('设置'));
+    await tester.tap(find.byTooltip('打开设置'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('关于 JANUS'));
     await tester.pumpAndSettle();
@@ -483,7 +483,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const JanusApp());
 
-    await tester.tap(find.byTooltip('设置'));
+    await tester.tap(find.byTooltip('打开设置'));
     await tester.pumpAndSettle();
     final settingsCenter = tester.getCenter(find.byType(AlertDialog).first);
     expect(settingsCenter.dx, closeTo(640, 1));

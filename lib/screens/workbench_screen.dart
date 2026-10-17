@@ -2619,23 +2619,18 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         body: Column(children: [
           _windowTitleBar(scheme),
           SizedBox(
-            height: 64,
+            height: 48,
             child: AppBar(
               primary: false,
-              toolbarHeight: 64,
+              toolbarHeight: 48,
               // The custom title bar and workspace share the same surface, so
               // the top chrome reads as one continuous area without a divider.
               backgroundColor: scheme.surface,
               surfaceTintColor: Colors.transparent,
               elevation: 0,
               actions: [
-                _sessionAction(scheme),
-                _appAction(Icons.account_tree_rounded, '帧定义器',
-                    _showFrameDefinitionDialog),
-                _appAction(
-                    Icons.upload_file_rounded, '导入帧配置', _importFrameTemplate),
-                _appAction(
-                    Icons.download_rounded, '导出帧配置', _exportFrameTemplate),
+                // File and protocol actions live in the left rail; the top bar
+                // keeps only live connection state and the theme switch.
                 _connectionChip(scheme),
                 const SizedBox(width: 4),
                 IconButton(
@@ -2645,7 +2640,6 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                       ? Icons.light_mode_outlined
                       : Icons.dark_mode_outlined),
                 ),
-                _appAction(Icons.settings_outlined, '设置', _showSettings),
                 const SizedBox(width: 4),
               ],
             ),
@@ -2765,42 +2759,35 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         ),
       );
 
-  /// Leaves a deliberate M3 gap between independent toolbar actions so their
-  /// circular containers do not visually merge into one control.
-  Widget _appAction(IconData icon, String tooltip, [VoidCallback? action]) =>
-      Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: IconButton.filledTonal(
-          tooltip: tooltip,
-          onPressed: action ?? () => _showMessage('$tooltip将在后续阶段接入'),
-          icon: Icon(icon, size: 20),
-        ),
-      );
-
-  Widget _sessionAction(ColorScheme scheme) => Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: MenuAnchor(
-          style: _janusMenuSurfaceStyle(scheme),
-          menuChildren: [
-            MenuItemButton(
-              style: _janusMenuItemStyle(scheme),
-              onPressed: _openSession,
-              leadingIcon: const Icon(Icons.folder_open_rounded),
-              child: const Text('打开会话'),
+  Future<void> _showSessionActions() => _showContainerTransformDialog<void>(
+        context: context,
+        alignment: Alignment.centerLeft,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('会话'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            ListTile(
+              leading: const Icon(Icons.folder_open_rounded),
+              title: const Text('打开会话'),
+              onTap: () {
+                Navigator.pop(dialogContext);
+                unawaited(_openSession());
+              },
             ),
-            MenuItemButton(
-              style: _janusMenuItemStyle(scheme),
-              onPressed: _saveSession,
-              leadingIcon: const Icon(Icons.save_rounded),
-              child: const Text('保存会话'),
+            ListTile(
+              leading: const Icon(Icons.save_rounded),
+              title: const Text('保存会话'),
+              onTap: () {
+                Navigator.pop(dialogContext);
+                unawaited(_saveSession());
+              },
+            ),
+          ]),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
             ),
           ],
-          builder: (context, controller, child) => IconButton.filledTonal(
-            tooltip: '会话：打开或保存',
-            onPressed: () =>
-                controller.isOpen ? controller.close() : controller.open(),
-            icon: const Icon(Icons.folder_copy_rounded, size: 20),
-          ),
         ),
       );
 
@@ -2896,15 +2883,28 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   Widget _protocolRail(ColorScheme scheme) => _AnimatedRail(
         destinations: const [
           _RailDestination(Icons.usb_rounded, 'UART'),
-          _RailDestination(Icons.settings_outlined, '设置'),
+          _RailDestination(Icons.folder_copy_rounded, '会话', tooltip: '打开或保存会话'),
+          _RailDestination(Icons.account_tree_rounded, '帧定义',
+              tooltip: '打开帧定义器'),
+          _RailDestination(Icons.upload_file_rounded, '导入', tooltip: '导入帧配置'),
+          _RailDestination(Icons.download_rounded, '导出', tooltip: '导出帧配置'),
+          _RailDestination(Icons.settings_outlined, '设置', tooltip: '打开设置'),
         ],
         selectedIndex: _leftRailIndex,
         onSelected: (value) {
-          if (value == 1) {
+          if (value == 0) {
+            setState(() => _leftRailIndex = 0);
+          } else if (value == 1) {
+            unawaited(_showSessionActions());
+          } else if (value == 2) {
+            unawaited(_showFrameDefinitionDialog());
+          } else if (value == 3) {
+            unawaited(_importFrameTemplate());
+          } else if (value == 4) {
+            unawaited(_exportFrameTemplate());
+          } else if (value == 5) {
             unawaited(_showSettings());
-            return;
           }
-          setState(() => _leftRailIndex = value);
         },
         scheme: scheme,
         side: _RailSide.left,
@@ -5360,10 +5360,11 @@ class _SerialPort {
 }
 
 class _RailDestination {
-  const _RailDestination(this.icon, this.label);
+  const _RailDestination(this.icon, this.label, {this.tooltip});
 
   final IconData icon;
   final String label;
+  final String? tooltip;
 }
 
 class _AboutDetail extends StatelessWidget {
@@ -6087,7 +6088,7 @@ class _AnimatedRailState extends State<_AnimatedRail> {
                 height: itemHeight,
                 width: double.infinity,
                 child: Tooltip(
-                  message: '打开${destination.label}模块',
+                  message: destination.tooltip ?? '打开${destination.label}模块',
                   child: InkWell(
                     borderRadius: BorderRadius.circular(100),
                     onTap: () => widget.onSelected(index),

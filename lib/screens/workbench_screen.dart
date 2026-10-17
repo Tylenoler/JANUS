@@ -2624,11 +2624,15 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
               primary: false,
               toolbarHeight: 64,
               titleSpacing: 16,
-              title: Row(children: [
-                _brandLogo(size: 44),
-                const SizedBox(width: 12),
-                const Text('串口调试助手'),
-              ]),
+              title: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(children: [
+                  _brandLogo(size: 30),
+                  const SizedBox(width: 10),
+                  const Text('串口调试助手'),
+                ]),
+              ),
               actions: [
                 _sessionAction(scheme),
                 _appAction(Icons.account_tree_rounded, '帧定义器',
@@ -2637,7 +2641,6 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                     Icons.upload_file_rounded, '导入帧配置', _importFrameTemplate),
                 _appAction(
                     Icons.download_rounded, '导出帧配置', _exportFrameTemplate),
-                const Spacer(),
                 _connectionChip(scheme),
                 const SizedBox(width: 4),
                 IconButton(
@@ -2735,7 +2738,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         child: Row(children: [
           // The wordmark already reads JANUS; a second brand label here would
           // duplicate it in the narrow custom title bar.
-          _brandLogo(size: 24),
+          _brandLogo(size: 16),
         ]),
       );
 

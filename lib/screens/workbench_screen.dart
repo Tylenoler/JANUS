@@ -2629,17 +2629,9 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
               surfaceTintColor: Colors.transparent,
               elevation: 0,
               actions: [
-                // File and protocol actions live in the left rail; the top bar
-                // keeps only live connection state and the theme switch.
+                // Only live connection state remains in the top bar; session,
+                // protocol, theme, and settings actions live elsewhere.
                 _connectionChip(scheme),
-                const SizedBox(width: 4),
-                IconButton(
-                  tooltip: '切换${widget.isDark ? '浅色' : '深色'}主题',
-                  onPressed: widget.onThemeChanged,
-                  icon: Icon(widget.isDark
-                      ? Icons.light_mode_outlined
-                      : Icons.dark_mode_outlined),
-                ),
                 const SizedBox(width: 4),
               ],
             ),
@@ -2761,7 +2753,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
 
   Future<void> _showSessionActions() => _showContainerTransformDialog<void>(
         context: context,
-        alignment: Alignment.centerLeft,
+        alignment: Alignment.centerRight,
         builder: (dialogContext) => AlertDialog(
           title: const Text('会话'),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -2883,27 +2875,11 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   Widget _protocolRail(ColorScheme scheme) => _AnimatedRail(
         destinations: const [
           _RailDestination(Icons.usb_rounded, 'UART'),
-          _RailDestination(Icons.folder_copy_rounded, '会话', tooltip: '打开或保存会话'),
-          _RailDestination(Icons.account_tree_rounded, '帧定义',
-              tooltip: '打开帧定义器'),
-          _RailDestination(Icons.upload_file_rounded, '导入', tooltip: '导入帧配置'),
-          _RailDestination(Icons.download_rounded, '导出', tooltip: '导出帧配置'),
-          _RailDestination(Icons.settings_outlined, '设置', tooltip: '打开设置'),
         ],
         selectedIndex: _leftRailIndex,
         onSelected: (value) {
           if (value == 0) {
             setState(() => _leftRailIndex = 0);
-          } else if (value == 1) {
-            unawaited(_showSessionActions());
-          } else if (value == 2) {
-            unawaited(_showFrameDefinitionDialog());
-          } else if (value == 3) {
-            unawaited(_importFrameTemplate());
-          } else if (value == 4) {
-            unawaited(_exportFrameTemplate());
-          } else if (value == 5) {
-            unawaited(_showSettings());
           }
         },
         scheme: scheme,
@@ -2938,6 +2914,13 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
             destinations: const [
               _RailDestination(Icons.data_object_rounded, '字段'),
               _RailDestination(Icons.verified_user_rounded, '校验'),
+              _RailDestination(Icons.folder_copy_rounded, '会话',
+                  tooltip: '打开或保存会话'),
+              _RailDestination(Icons.account_tree_rounded, '帧定义',
+                  tooltip: '打开帧定义器'),
+              _RailDestination(Icons.upload_file_rounded, '导入',
+                  tooltip: '导入帧配置'),
+              _RailDestination(Icons.download_rounded, '导出', tooltip: '导出帧配置'),
             ],
             selectedIndex: _rightRailIndex,
             onSelected: (value) {
@@ -2957,6 +2940,15 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
               if (value == 1) {
                 _toggleIntegrityPanel();
                 return;
+              }
+              if (value == 2) {
+                unawaited(_showSessionActions());
+              } else if (value == 3) {
+                unawaited(_showFrameDefinitionDialog());
+              } else if (value == 4) {
+                unawaited(_importFrameTemplate());
+              } else if (value == 5) {
+                unawaited(_exportFrameTemplate());
               }
             },
             scheme: scheme,
@@ -5077,6 +5069,46 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         fontSize: 11.5,
       ),
     );
+    Widget statusAction(
+      IconData icon,
+      String tooltip,
+      VoidCallback onPressed,
+    ) =>
+        Tooltip(
+          message: tooltip,
+          child: Semantics(
+            button: true,
+            label: tooltip,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: onPressed,
+                child: SizedBox(
+                  width: 26,
+                  height: 22,
+                  child: Icon(icon, size: 16, color: scheme.onSurfaceVariant),
+                ),
+              ),
+            ),
+          ),
+        );
+    final leftActions = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        statusAction(
+          Icons.settings_outlined,
+          '打开设置',
+          () => unawaited(_showSettings()),
+        ),
+        const SizedBox(width: 2),
+        statusAction(
+          widget.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+          '切换${widget.isDark ? '浅色' : '深色'}主题',
+          widget.onThemeChanged,
+        ),
+      ],
+    );
     return Container(
       key: const ValueKey('status-bar'),
       constraints: const BoxConstraints(minHeight: 30),
@@ -5084,19 +5116,25 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       color: scheme.surfaceContainerLow,
       child: LayoutBuilder(builder: (context, constraints) {
         // Keep live transport data visually centered on a wide desktop while
-        // reserving the far-right edge for the build identity. Narrow windows
-        // deliberately reflow instead of clipping or horizontally overflowing.
+        // reserving the far-right edge for the build identity and the far-left
+        // edge for settings and the theme switch. Narrow windows deliberately
+        // reflow instead of clipping or horizontally overflowing.
         if (constraints.maxWidth >= 1100) {
           return SizedBox(
             height: 22,
             child: Stack(children: [
+              Align(alignment: Alignment.centerLeft, child: leftActions),
               Align(alignment: Alignment.center, child: metrics),
               Align(alignment: Alignment.centerRight, child: buildIdentity),
             ]),
           );
         }
         return Column(mainAxisSize: MainAxisSize.min, children: [
-          metrics,
+          Row(children: [
+            leftActions,
+            const SizedBox(width: 10),
+            Expanded(child: metrics),
+          ]),
           const SizedBox(height: 2),
           Align(
             alignment: Alignment.centerRight,

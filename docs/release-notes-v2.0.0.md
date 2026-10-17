@@ -9,6 +9,8 @@ This is a brand and identity release. The workbench behavior, IPC v2 protocol, f
 ### Changed
 
 - Product, window title, About page, README and product documents now use **JANUS**.
+- The new JANUS wordmark ships as white-on-transparent and black-on-transparent variants; dark surfaces use the white mark and light surfaces use the black mark.
+- The Windows executable and taskbar icon now use the JANUS wordmark on a dark rounded tile.
 - The Flutter package is `janus`; the Windows executable is `JANUS.exe`; the Rust Core is `janus-core.exe` (Core `0.4.0`).
 - The virtual-COM driver moved to `driver/janus-vcom/` with the control device `\\.\JanusVcomCtl` and root enumerator `ROOT\JANUSVCOM`.
 - Session files use `.janustrace`; session and queue-preset format identifiers use the `janus-` prefix.
@@ -37,6 +39,8 @@ JANUS 是本项目的新名字。产品现在定位为 **TITAN 宇宙** 中的�
 ### 变更
 
 - 产品名、窗口标题、关于页、README 与产品文档统一为 **JANUS**。
+- 新的 JANUS 字标提供白色与黑色两个透明底版本：深色界面使用白图，浅色界面使用黑图。
+- Windows 可执行文件与任务栏图标更新为深色圆角方块上的 JANUS 字标。
 - Flutter 包名改为 `janus`；Windows 可执行文件为 `JANUS.exe`；Rust Core 为 `janus-core.exe`（Core `0.4.0`）。
 - 虚拟串口驱动迁移到 `driver/janus-vcom/`，控制设备为 `\\.\JanusVcomCtl`，根枚举名为 `ROOT\JANUSVCOM`。
 - 会话文件扩展名为 `.janustrace`；会话与队列预设的格式标识使用 `janus-` 前缀。

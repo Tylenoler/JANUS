@@ -22,7 +22,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - Image/JANUS_LOGO_transparent.png
+    - Image/JANUS_LOGO_black.png
+    - Image/JANUS_LOGO_white.png
   fonts:
     - family: Cascadia Code
       fonts:

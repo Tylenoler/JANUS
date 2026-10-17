@@ -1,7 +1,10 @@
 # JANUS / 串口调试助手
 
 <p align="center">
-  <img src="Image/JANUS_LOGO.png" width="160" alt="JANUS logo" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="Image/JANUS_LOGO_white.png">
+    <img src="Image/JANUS_LOGO_black.png" width="240" alt="JANUS logo" />
+  </picture>
 </p>
 
 <p align="center">

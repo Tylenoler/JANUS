@@ -63,6 +63,10 @@ const _autoReconnectPreferenceKey = 'autoReconnect';
 const _serialProfilePreferenceKey = 'serialProfilesV1';
 const _frameTemplatesPreferenceKey = 'frameTemplatesV1';
 const _selectedFrameTemplatePreferenceKey = 'selectedFrameTemplateV1';
+
+/// The supplied JANUS wordmark is 205 x 57 px after stripping transparent
+/// padding; keeping the ratio lets both title bars allocate the right width.
+const _janusLogoAspectRatio = 205 / 57;
 const _standardBaudRates = <String>[
   '1200',
   '2400',
@@ -2623,7 +2627,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
               title: Row(children: [
                 _brandLogo(size: 44),
                 const SizedBox(width: 12),
-                const Text('JANUS 调试助手'),
+                const Text('串口调试助手'),
               ]),
               actions: [
                 _sessionAction(scheme),
@@ -2702,9 +2706,9 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         Expanded(
           child: _usesNativeWindowFrame
               ? MoveWindow(
-                  child: _windowTitleContent(scheme),
+                  child: _windowTitleContent(),
                 )
-              : _windowTitleContent(scheme),
+              : _windowTitleContent(),
         ),
         if (_usesNativeWindowFrame)
           Tooltip(
@@ -2726,18 +2730,12 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     return _usesNativeWindowFrame ? WindowTitleBarBox(child: title) : title;
   }
 
-  Widget _windowTitleContent(ColorScheme scheme) => Padding(
+  Widget _windowTitleContent() => Padding(
         padding: const EdgeInsets.only(left: 14, right: 8),
         child: Row(children: [
+          // The wordmark already reads JANUS; a second brand label here would
+          // duplicate it in the narrow custom title bar.
           _brandLogo(size: 24),
-          const SizedBox(width: 8),
-          Text('JANUS',
-              style: TextStyle(
-                  color: scheme.onSurface,
-                  fontFamily: JanusTheme.latinFontFamily,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: .5,
-                  fontSize: 13)),
         ]),
       );
 
@@ -4490,42 +4488,18 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   }
 
   Widget _brandLogo({required double size}) {
-    final logo = Image.asset(
-      'Image/JANUS_LOGO_transparent.png',
-      fit: BoxFit.contain,
-    );
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-
+    // The JANUS wordmark ships as two transparent variants: white for dark
+    // surfaces and black for light surfaces. Never invert one bitmap.
     return SizedBox(
-      width: size,
       height: size,
-      child: isDarkTheme
-          ? ColorFiltered(
-              colorFilter: const ColorFilter.matrix(<double>[
-                -1,
-                0,
-                0,
-                0,
-                255,
-                0,
-                -1,
-                0,
-                0,
-                255,
-                0,
-                0,
-                -1,
-                0,
-                255,
-                0,
-                0,
-                0,
-                1,
-                0,
-              ]),
-              child: logo,
-            )
-          : logo,
+      width: size * _janusLogoAspectRatio,
+      child: Image.asset(
+        isDarkTheme
+            ? 'Image/JANUS_LOGO_white.png'
+            : 'Image/JANUS_LOGO_black.png',
+        fit: BoxFit.contain,
+      ),
     );
   }
 

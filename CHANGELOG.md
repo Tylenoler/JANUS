@@ -15,6 +15,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Renamed the Flutter package to `janus`, the Rust Core to `janus-core.exe` (Core `0.4.0`), and the virtual-COM driver to `janus-vcom` (`\\.\JanusVcomCtl`, `ROOT\JANUSVCOM`).
 - Session files now use the `.janustrace` extension; session and queue-preset format identifiers use the `janus-` prefix.
 - Added `JANUS · TITAN Universe` branding to the About dialog and README.
+- Replaced the logo with the new JANUS wordmark, supplied as white-on-transparent and black-on-transparent variants for dark and light surfaces.
+- Replaced the Windows executable and taskbar icon with the JANUS wordmark on a dark rounded tile.
 - Build variables are now `JANUS_GIT_SHA`, `JANUS_BUILD_TIME`, `JANUS_CORE_PATH` and `JANUS_CARGO_EXECUTABLE`.
 
 ### Breaking

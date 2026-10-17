@@ -46,7 +46,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(const JanusApp());
 
-    expect(find.text('JANUS 调试助手'), findsOneWidget);
+    expect(find.text('串口调试助手'), findsOneWidget);
     expect(find.text('HEX 原始'), findsOneWidget);
     expect(find.text('统计'), findsNothing);
     expect(find.text('时间轴'), findsNothing);
@@ -63,6 +63,24 @@ void main() {
     expect(find.byIcon(Icons.chevron_left), findsOneWidget);
     expect(find.byIcon(Icons.chevron_right), findsOneWidget);
     expect(find.byKey(const ValueKey('queue-editor-panel')), findsNothing);
+  });
+
+  testWidgets('selects the JANUS logo variant for the active theme',
+      (tester) async {
+    await tester.pumpWidget(const JanusApp());
+
+    expect(find.image(const AssetImage('Image/JANUS_LOGO_white.png')),
+        findsWidgets);
+    expect(find.image(const AssetImage('Image/JANUS_LOGO_black.png')),
+        findsNothing);
+
+    await tester.tap(find.byTooltip('切换浅色主题'));
+    await tester.pumpAndSettle();
+
+    expect(find.image(const AssetImage('Image/JANUS_LOGO_black.png')),
+        findsWidgets);
+    expect(find.image(const AssetImage('Image/JANUS_LOGO_white.png')),
+        findsNothing);
   });
 
   testWidgets('reflows bottom metrics and build identity on a narrow window',
@@ -451,7 +469,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(const JanusApp());
 
-    final context = tester.element(find.text('JANUS 调试助手'));
+    final context = tester.element(find.text('串口调试助手'));
     expect(Theme.of(context).textTheme.bodyMedium!.fontFamilyFallback,
         contains(JanusTheme.chineseFontFamily));
     expect(Theme.of(context).textTheme.bodyMedium!.fontFamily,

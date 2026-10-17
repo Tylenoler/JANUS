@@ -1,0 +1,48 @@
+; JANUS self-owned virtual COM bus driver.
+; CatalogFile is produced by Inf2Cat during the WDK package step.
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=Ports
+ClassGuid={4D36E978-E325-11CE-BFC1-08002BE10318}
+Provider=%JANUS%
+CatalogFile=janus-vcom.cat
+DriverVer=10/17/2026,0.2.0.0
+PnpLockdown=1
+
+[Manufacturer]
+%JANUS%=JanusModels,NTamd64
+
+[JanusModels.NTamd64]
+%JanusVcom.DeviceDesc%=JanusVcom_Install,ROOT\JANUSVCOM
+
+[JanusVcom_Install.NT]
+CopyFiles=JanusVcom_CopyFiles
+
+[JanusVcom_CopyFiles]
+janus-vcom.sys
+
+[SourceDisksNames]
+1=%DiskName%,,,
+
+[SourceDisksFiles]
+janus-vcom.sys=1
+
+[DestinationDirs]
+JanusVcom_CopyFiles=12
+
+[JanusVcom_Install.NT.Services]
+AddService=janus-vcom,0x00000002,JanusVcom_Service
+
+[JanusVcom_Service]
+DisplayName=%JanusVcom.ServiceDesc%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%12%\janus-vcom.sys
+
+[Strings]
+JANUS="JANUS"
+DiskName="JANUS Virtual COM Driver Installation Disk"
+JanusVcom.DeviceDesc="JANUS Virtual COM Bus"
+JanusVcom.ServiceDesc="JANUS Virtual COM Driver"

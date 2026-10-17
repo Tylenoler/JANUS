@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-abstract final class HcomTheme {
+abstract final class JanusTheme {
   static const latinFontFamily = 'Cascadia Code';
   static const chineseFontFamily = 'Noto Sans SC';
   static const chineseFallback = <String>[chineseFontFamily];

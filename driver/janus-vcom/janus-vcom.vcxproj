@@ -7,7 +7,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{DF6E1C07-7517-4A79-BBA6-EF9F919B0C77}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>HcomVcom</RootNamespace>
+    <RootNamespace>JanusVcom</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
     <WindowsSdkDir Condition="'$(WindowsSdkDir)'==''">C:\Program Files (x86)\Windows Kits\10\</WindowsSdkDir>
     <WDKContentRoot Condition="'$(WDKContentRoot)'==''">$(WindowsSdkDir)</WDKContentRoot>
@@ -37,7 +37,7 @@
     <TargetVersion>Windows10</TargetVersion><KMDF_VERSION_MAJOR>1</KMDF_VERSION_MAJOR><KMDF_VERSION_MINOR>35</KMDF_VERSION_MINOR>
     <OutDir>$(ProjectDir)out\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)out\$(Platform)\$(Configuration)\obj\</IntDir>
-    <TargetName>hcom-vcom</TargetName>
+    <TargetName>janus-vcom</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -59,7 +59,7 @@
       <AdditionalDependencies>ntoskrnl.lib;hal.lib;wmilib.lib;wdmsec.lib;WdfLdr.lib;WdfDriverEntry.lib;BufferOverflowFastFailK.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup><ClCompile Include="src\hcom_vcom.c" /><ClInclude Include="include\hcom_vcom_public.h" /></ItemGroup>
+  <ItemGroup><ClCompile Include="src\janus_vcom.c" /><ClInclude Include="include\janus_vcom_public.h" /></ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(WindowsSdkDir)build\$(WindowsTargetPlatformVersion)\WindowsDriver.Common.targets" />
 </Project>

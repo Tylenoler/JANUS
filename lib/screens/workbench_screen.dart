@@ -17,7 +17,7 @@ import '../models/multi_frame_analysis.dart';
 import '../models/receive_framer.dart';
 import '../models/serial_entry.dart';
 import '../models/time_zone.dart';
-import '../theme/hcom_theme.dart';
+import '../theme/janus_theme.dart';
 
 enum SendMode { sequence, loop, trigger, periodic }
 
@@ -475,7 +475,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                     : '可变长度 HEX 数据域',
                           ),
                           style: const TextStyle(
-                              fontFamily: HcomTheme.latinFontFamily),
+                              fontFamily: JanusTheme.latinFontFamily),
                         );
                       },
                     ),
@@ -492,7 +492,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                     child: SelectableText(
                       error ?? '预览 ${preview!.bytes.length} B · ${preview.hex}',
                       style: TextStyle(
-                        fontFamily: HcomTheme.latinFontFamily,
+                        fontFamily: JanusTheme.latinFontFamily,
                         color: error == null
                             ? Theme.of(context).colorScheme.onSecondaryContainer
                             : Theme.of(context).colorScheme.onErrorContainer,
@@ -1225,16 +1225,16 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   Future<void> _exportQueuePreset() async {
     final location = await getSaveLocation(
       suggestedName:
-          '${_queueNameController.text.trim().isEmpty ? 'HPCOM_队列' : _queueNameController.text.trim().replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_')}_preset.json',
+          '${_queueNameController.text.trim().isEmpty ? 'JANUS_队列' : _queueNameController.text.trim().replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_')}_preset.json',
       acceptedTypeGroups: const [
-        XTypeGroup(label: 'HPCOM 队列预设', extensions: ['json'])
+        XTypeGroup(label: 'JANUS 队列预设', extensions: ['json'])
       ],
     );
     if (location == null) return;
     try {
       await File(location.path).writeAsString(
         const JsonEncoder.withIndent('  ').convert({
-          'format': 'hcom-queue-preset',
+          'format': 'janus-queue-preset',
           'version': 1,
           'name': _queueNameController.text,
           'commands': _queue.map((command) => command.toJson()).toList(),
@@ -1249,13 +1249,13 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
 
   Future<void> _importQueuePreset() async {
     final file = await openFile(acceptedTypeGroups: const [
-      XTypeGroup(label: 'HPCOM 队列预设', extensions: ['json'])
+      XTypeGroup(label: 'JANUS 队列预设', extensions: ['json'])
     ]);
     if (file == null) return;
     try {
       final decoded = jsonDecode(await File(file.path).readAsString());
-      if (decoded is! Map || decoded['format'] != 'hcom-queue-preset') {
-        throw const FormatException('不是 HPCOM 队列预设。');
+      if (decoded is! Map || decoded['format'] != 'janus-queue-preset') {
+        throw const FormatException('不是 JANUS 队列预设。');
       }
       final map = Map<String, dynamic>.from(decoded);
       final commands = (map['commands'] as List? ?? const [])
@@ -1661,7 +1661,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 14, vertical: 4),
                           leading: const Icon(Icons.info_outline_rounded),
-                          title: const Text('关于 HPCom'),
+                          title: const Text('关于 JANUS'),
                           subtitle: const Text('版本、开发者、仓库与版权信息'),
                           trailing: const Icon(Icons.chevron_right_rounded),
                           onTap: _showAbout,
@@ -1725,7 +1725,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         context: context,
         alignment: Alignment.center,
         barrierColor: Colors.transparent,
-        builder: (context) => _AboutHpcommDialog(
+        builder: (context) => _AboutJanusDialog(
           onClose: () => Navigator.pop(context),
         ),
       );
@@ -1827,7 +1827,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       suggestedName:
           '${_frameTemplate.name.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_')}_frame.json',
       acceptedTypeGroups: const [
-        XTypeGroup(label: 'HPCOM 帧模板', extensions: ['json'])
+        XTypeGroup(label: 'JANUS 帧模板', extensions: ['json'])
       ],
     );
     if (location == null) return;
@@ -1843,7 +1843,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   Future<void> _importFrameTemplate() async {
     final file = await openFile(
       acceptedTypeGroups: const [
-        XTypeGroup(label: 'HPCOM 帧模板', extensions: ['json'])
+        XTypeGroup(label: 'JANUS 帧模板', extensions: ['json'])
       ],
     );
     if (file == null) return;
@@ -2032,7 +2032,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                 content: SizedBox(
                     width: 400,
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      _HcomPopupField<ProtocolFieldKind>(
+                      _JanusPopupField<ProtocolFieldKind>(
                           width: 400,
                           label: '字段类型',
                           value: kind,
@@ -2060,7 +2060,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                       if (kind == ProtocolFieldKind.length ||
                           kind == ProtocolFieldKind.integer) ...[
                         const SizedBox(height: 12),
-                        _HcomPopupField<ByteOrder>(
+                        _JanusPopupField<ByteOrder>(
                             width: 400,
                             label: '字节序',
                             value: order,
@@ -2087,7 +2087,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                       ],
                       if (kind == ProtocolFieldKind.checksum) ...[
                         const SizedBox(height: 12),
-                        _HcomPopupField<ChecksumAlgorithm>(
+                        _JanusPopupField<ChecksumAlgorithm>(
                             width: 400,
                             label: '算法',
                             value: algorithm,
@@ -2308,8 +2308,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                         style: TextStyle(
                             color: parsed.valid
                                 ? (widget.isDark
-                                    ? HcomTheme.txDark
-                                    : HcomTheme.txLight)
+                                    ? JanusTheme.txDark
+                                    : JanusTheme.txLight)
                                 : Theme.of(dialogContext).colorScheme.error))),
               ])),
           actions: [
@@ -2623,7 +2623,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
               title: Row(children: [
                 _brandLogo(size: 44),
                 const SizedBox(width: 12),
-                const Text('HPCom 调试助手'),
+                const Text('JANUS 调试助手'),
               ]),
               actions: [
                 _sessionAction(scheme),
@@ -2731,10 +2731,10 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         child: Row(children: [
           _brandLogo(size: 24),
           const SizedBox(width: 8),
-          Text('HPCom',
+          Text('JANUS',
               style: TextStyle(
                   color: scheme.onSurface,
-                  fontFamily: HcomTheme.latinFontFamily,
+                  fontFamily: JanusTheme.latinFontFamily,
                   fontWeight: FontWeight.w600,
                   letterSpacing: .5,
                   fontSize: 13)),
@@ -2787,16 +2787,16 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   Widget _sessionAction(ColorScheme scheme) => Padding(
         padding: const EdgeInsets.only(right: 8),
         child: MenuAnchor(
-          style: _hcomMenuSurfaceStyle(scheme),
+          style: _janusMenuSurfaceStyle(scheme),
           menuChildren: [
             MenuItemButton(
-              style: _hcomMenuItemStyle(scheme),
+              style: _janusMenuItemStyle(scheme),
               onPressed: _openSession,
               leadingIcon: const Icon(Icons.folder_open_rounded),
               child: const Text('打开会话'),
             ),
             MenuItemButton(
-              style: _hcomMenuItemStyle(scheme),
+              style: _janusMenuItemStyle(scheme),
               onPressed: _saveSession,
               leadingIcon: const Icon(Icons.save_rounded),
               child: const Text('保存会话'),
@@ -2812,7 +2812,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       );
 
   Widget _connectionChip(ColorScheme scheme) {
-    final accent = widget.isDark ? HcomTheme.txDark : HcomTheme.txLight;
+    final accent = widget.isDark ? JanusTheme.txDark : JanusTheme.txLight;
     final isActive = _connected || _connecting;
     final summary = _connected
         ? '${_selectedPort?.port ?? 'COM'} · $_baudRate · $_dataBits-$_parityCode-$_stopBits'
@@ -2869,7 +2869,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                       const SizedBox(width: 8),
                       Text(summary,
                           style: const TextStyle(
-                              fontFamily: HcomTheme.latinFontFamily,
+                              fontFamily: JanusTheme.latinFontFamily,
                               fontSize: 12)),
                     ]),
                   ),
@@ -3190,7 +3190,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     }
     return SizedBox(
       width: width,
-      child: _HcomPopupField<_SerialPort>(
+      child: _JanusPopupField<_SerialPort>(
         width: width,
         label: '串口',
         value: selected,
@@ -3231,7 +3231,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                             color: scheme.onSurfaceVariant,
-                            fontFamily: HcomTheme.latinFontFamily,
+                            fontFamily: JanusTheme.latinFontFamily,
                             fontSize: 11)),
                   ])),
             ]),
@@ -3249,7 +3249,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
           ValueChanged<String> onChanged) =>
       SizedBox(
         width: 132,
-        child: _HcomPopupField<String>(
+        child: _JanusPopupField<String>(
           width: 132,
           label: label,
           value: selected,
@@ -3389,7 +3389,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       _showMessage('当前没有可保存的日志。');
       return;
     }
-    final location = await _chooseLogSaveLocation(format, 'HPCOM_日志');
+    final location = await _chooseLogSaveLocation(format, 'JANUS_日志');
     if (location == null) return;
     try {
       await File(location.path).writeAsString(
@@ -3549,11 +3549,11 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
           icon: const Icon(Icons.skip_next_rounded),
         ),
         MenuAnchor(
-          style: _hcomMenuSurfaceStyle(scheme),
+          style: _janusMenuSurfaceStyle(scheme),
           menuChildren: [
             for (final speed in [0.25, 1.0, 4.0])
               MenuItemButton(
-                style: _hcomMenuItemStyle(scheme,
+                style: _janusMenuItemStyle(scheme,
                     selected: _playbackSpeed == speed),
                 onPressed: () => setState(() => _playbackSpeed = speed),
                 child: Text('$speed×'),
@@ -3596,9 +3596,9 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     final sessionEntries = _playbackEntries ?? _rawEntries;
     final location = await getSaveLocation(
       suggestedName:
-          'HPCOM_会话_${DateTime.now().toIso8601String().replaceAll(':', '-')}.hcomtrace',
+          'JANUS_会话_${DateTime.now().toIso8601String().replaceAll(':', '-')}.janustrace',
       acceptedTypeGroups: const [
-        XTypeGroup(label: 'HPCOM 会话', extensions: ['hcomtrace'])
+        XTypeGroup(label: 'JANUS 会话', extensions: ['janustrace'])
       ],
     );
     if (location == null) return;
@@ -3611,7 +3611,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       }
     }
     final session = {
-      'format': 'hcom-session',
+      'format': 'janus-session',
       'version': 2,
       'savedAt': DateTime.now().toUtc().toIso8601String(),
       'template': _frameTemplate.toJson(),
@@ -3640,13 +3640,13 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       return;
     }
     final file = await openFile(acceptedTypeGroups: const [
-      XTypeGroup(label: 'HPCOM 会话', extensions: ['hcomtrace'])
+      XTypeGroup(label: 'JANUS 会话', extensions: ['janustrace'])
     ]);
     if (file == null) return;
     try {
       final decoded = jsonDecode(await File(file.path).readAsString());
-      if (decoded is! Map || decoded['format'] != 'hcom-session') {
-        throw const FormatException('不是有效的 HPCOM 会话文件。');
+      if (decoded is! Map || decoded['format'] != 'janus-session') {
+        throw const FormatException('不是有效的 JANUS 会话文件。');
       }
       final map = Map<String, dynamic>.from(decoded);
       final template = FrameTemplate.decode(jsonEncode(map['template']));
@@ -3730,7 +3730,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   }
 
   Future<void> _startRealtimeLog(LogFileFormat format) async {
-    final location = await _chooseLogSaveLocation(format, 'HPCOM_实时日志');
+    final location = await _chooseLogSaveLocation(format, 'JANUS_实时日志');
     if (location == null) return;
     try {
       await File(location.path).writeAsString(
@@ -3986,10 +3986,12 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                         );
                     final isRx = entry.direction == SerialDirection.rx;
                     final accent = isRx
-                        ? (widget.isDark ? HcomTheme.rxDark : HcomTheme.rxLight)
+                        ? (widget.isDark
+                            ? JanusTheme.rxDark
+                            : JanusTheme.rxLight)
                         : (widget.isDark
-                            ? HcomTheme.txDark
-                            : HcomTheme.txLight);
+                            ? JanusTheme.txDark
+                            : JanusTheme.txLight);
                     return Card(
                       margin: const EdgeInsets.only(bottom: 7),
                       child: ExpansionTile(
@@ -4003,7 +4005,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                         title: Text(
                             '${isRx ? 'RX' : 'TX'} · ${_formatTime(entry.timestamp)}',
                             style: const TextStyle(
-                                fontFamily: HcomTheme.latinFontFamily,
+                                fontFamily: JanusTheme.latinFontFamily,
                                 fontSize: 12)),
                         subtitle: Text(
                             result.valid
@@ -4014,8 +4016,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                             style: TextStyle(
                                 color: result.valid
                                     ? (widget.isDark
-                                        ? HcomTheme.txDark
-                                        : HcomTheme.txLight)
+                                        ? JanusTheme.txDark
+                                        : JanusTheme.txLight)
                                     : scheme.error,
                                 fontSize: 11.5)),
                         children: [
@@ -4043,7 +4045,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                         child: Text(field.hex,
                                             style: const TextStyle(
                                                 fontFamily:
-                                                    HcomTheme.latinFontFamily,
+                                                    JanusTheme.latinFontFamily,
                                                 fontSize: 12))),
                                     if (field.value != null &&
                                         (field.field.kind ==
@@ -4055,7 +4057,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                           style: TextStyle(
                                               color: scheme.onSurfaceVariant,
                                               fontFamily:
-                                                  HcomTheme.latinFontFamily,
+                                                  JanusTheme.latinFontFamily,
                                               fontSize: 12)),
                                     ],
                                   ]),
@@ -4066,7 +4068,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                     child: Text('原始：${entry.hex}',
                                         style: const TextStyle(
                                             fontFamily:
-                                                HcomTheme.latinFontFamily,
+                                                JanusTheme.latinFontFamily,
                                             fontSize: 12))),
                             ]),
                           ),
@@ -4204,11 +4206,11 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       ),
       const SizedBox(width: 8),
       MenuAnchor(
-        style: _hcomMenuSurfaceStyle(scheme),
+        style: _janusMenuSurfaceStyle(scheme),
         menuChildren: [
           for (final mode in ReceiveFramingMode.values)
             MenuItemButton(
-              style: _hcomMenuItemStyle(
+              style: _janusMenuItemStyle(
                 scheme,
                 selected: mode == _receiveFramingConfig.mode,
               ),
@@ -4235,18 +4237,18 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       ),
       const SizedBox(width: 8),
       MenuAnchor(
-        style: _hcomMenuSurfaceStyle(scheme),
+        style: _janusMenuSurfaceStyle(scheme),
         menuChildren: [
           for (final format in LogFileFormat.values) ...[
             MenuItemButton(
-              style: _hcomMenuItemStyle(scheme),
+              style: _janusMenuItemStyle(scheme),
               clipBehavior: Clip.antiAlias,
               onPressed: () => unawaited(_saveLogManually(format)),
               leadingIcon: const Icon(Icons.save_as_rounded),
               child: Text('手动保存 ${format.label}'),
             ),
             MenuItemButton(
-              style: _hcomMenuItemStyle(scheme),
+              style: _janusMenuItemStyle(scheme),
               clipBehavior: Clip.antiAlias,
               onPressed: () =>
                   unawaited(_saveLogManually(format, filtered: true)),
@@ -4270,10 +4272,10 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       ),
       const SizedBox(width: 8),
       MenuAnchor(
-        style: _hcomMenuSurfaceStyle(scheme),
+        style: _janusMenuSurfaceStyle(scheme),
         menuChildren: [
           MenuItemButton(
-            style: _hcomMenuItemStyle(
+            style: _janusMenuItemStyle(
               scheme,
               selected: _realtimeLogPath == null,
             ),
@@ -4284,7 +4286,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
           ),
           const Divider(),
           MenuItemButton(
-            style: _hcomMenuItemStyle(
+            style: _janusMenuItemStyle(
               scheme,
               selected: _realtimeLogPath != null &&
                   _realtimeLogFormat == LogFileFormat.csv,
@@ -4295,7 +4297,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
             child: const Text('实时保存 CSV'),
           ),
           MenuItemButton(
-            style: _hcomMenuItemStyle(
+            style: _janusMenuItemStyle(
               scheme,
               selected: _realtimeLogPath != null &&
                   _realtimeLogFormat == LogFileFormat.txt,
@@ -4381,8 +4383,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         ? entry.hex
         : _decodeHexText(entry.hex);
     final accent = isRx
-        ? (widget.isDark ? HcomTheme.rxDark : HcomTheme.rxLight)
-        : (widget.isDark ? HcomTheme.txDark : HcomTheme.txLight);
+        ? (widget.isDark ? JanusTheme.rxDark : JanusTheme.rxLight)
+        : (widget.isDark ? JanusTheme.txDark : JanusTheme.txLight);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Material(
@@ -4400,7 +4402,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                       style: TextStyle(
                           color: scheme.onSurfaceVariant,
                           fontSize: 11.5,
-                          fontFamily: HcomTheme.latinFontFamily)),
+                          fontFamily: JanusTheme.latinFontFamily)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -4424,14 +4426,14 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                     style: TextStyle(
                         color: scheme.onSurfaceVariant,
                         fontSize: 11.5,
-                        fontFamily: HcomTheme.latinFontFamily))),
+                        fontFamily: JanusTheme.latinFontFamily))),
             const SizedBox(width: 12),
             Expanded(
                 child: Text(payload,
                     style: TextStyle(
                         color: scheme.onSurface,
                         fontFamily: _receiveInputFormat == SendInputFormat.hex
-                            ? HcomTheme.latinFontFamily
+                            ? JanusTheme.latinFontFamily
                             : null,
                         fontSize: 12.5))),
             const SizedBox(width: 12),
@@ -4489,7 +4491,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
 
   Widget _brandLogo({required double size}) {
     final logo = Image.asset(
-      'Image/HPCOMLOGOtouming.png',
+      'Image/JANUS_LOGO_transparent.png',
       fit: BoxFit.contain,
     );
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
@@ -4669,7 +4671,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               style: const TextStyle(
-                  fontFamily: HcomTheme.latinFontFamily, fontSize: 13),
+                  fontFamily: JanusTheme.latinFontFamily, fontSize: 13),
               decoration: const InputDecoration(
                 labelText: '周期',
                 suffixText: 'ms',
@@ -4680,11 +4682,11 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         );
 
     Widget packetButton() => MenuAnchor(
-          style: _hcomMenuSurfaceStyle(scheme),
+          style: _janusMenuSurfaceStyle(scheme),
           menuChildren: [
             for (final suffix in PacketSuffix.values)
               MenuItemButton(
-                style: _hcomMenuItemStyle(
+                style: _janusMenuItemStyle(
                   scheme,
                   selected: _sendPacketSuffix == suffix,
                 ),
@@ -4959,7 +4961,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                 isDense: true,
               ),
               style: const TextStyle(
-                  fontFamily: HcomTheme.latinFontFamily, fontSize: 12),
+                  fontFamily: JanusTheme.latinFontFamily, fontSize: 12),
             ),
             const SizedBox(height: 6),
             Wrap(spacing: 8, runSpacing: 6, children: [
@@ -4982,16 +4984,16 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                       isDense: true,
                     ),
                     style: const TextStyle(
-                        fontFamily: HcomTheme.latinFontFamily, fontSize: 12),
+                        fontFamily: JanusTheme.latinFontFamily, fontSize: 12),
                   ),
                 ),
               ),
               MenuAnchor(
-                style: _hcomMenuSurfaceStyle(scheme),
+                style: _janusMenuSurfaceStyle(scheme),
                 menuChildren: [
                   for (final suffix in PacketSuffix.values)
                     MenuItemButton(
-                      style: _hcomMenuItemStyle(
+                      style: _janusMenuItemStyle(
                         scheme,
                         selected: command.packetSuffix == suffix,
                       ),
@@ -5057,7 +5059,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                 text: value,
                 style: TextStyle(
                     color: scheme.onSurface,
-                    fontFamily: HcomTheme.latinFontFamily,
+                    fontFamily: JanusTheme.latinFontFamily,
                     fontWeight: FontWeight.w500),
               ),
             ],
@@ -5083,7 +5085,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                 text: '累计 $_droppedBytes B / 本次 $_droppedBurstBytes B',
                 style: TextStyle(
                   color: _droppedBytes > 0 ? scheme.error : scheme.onSurface,
-                  fontFamily: HcomTheme.latinFontFamily,
+                  fontFamily: JanusTheme.latinFontFamily,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -5102,7 +5104,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       softWrap: false,
       style: TextStyle(
         color: scheme.onSurfaceVariant,
-        fontFamily: HcomTheme.latinFontFamily,
+        fontFamily: JanusTheme.latinFontFamily,
         fontSize: 11.5,
       ),
     );
@@ -5247,7 +5249,7 @@ class _ContainerTransformTransition extends StatelessWidget {
 /// Shared menu treatment: a generous surface radius with small inset around
 /// each menu item, so hover and selected states remain rounded rather than
 /// filling the whole menu as a hard-edged rectangle.
-MenuStyle _hcomMenuSurfaceStyle(ColorScheme scheme, {double? width}) =>
+MenuStyle _janusMenuSurfaceStyle(ColorScheme scheme, {double? width}) =>
     MenuStyle(
       backgroundColor:
           WidgetStatePropertyAll<Color?>(scheme.surfaceContainerHigh),
@@ -5263,7 +5265,7 @@ MenuStyle _hcomMenuSurfaceStyle(ColorScheme scheme, {double? width}) =>
       ),
     );
 
-ButtonStyle _hcomMenuItemStyle(
+ButtonStyle _janusMenuItemStyle(
   ColorScheme scheme, {
   bool selected = false,
 }) =>
@@ -5279,8 +5281,8 @@ ButtonStyle _hcomMenuItemStyle(
 
 /// A compact M3 menu field whose rounded option states match the rest of the
 /// workbench. Flutter's legacy dropdown renders rectangular item highlights.
-class _HcomPopupField<T> extends StatelessWidget {
-  const _HcomPopupField({
+class _JanusPopupField<T> extends StatelessWidget {
+  const _JanusPopupField({
     required this.width,
     required this.label,
     required this.value,
@@ -5311,16 +5313,16 @@ class _HcomPopupField<T> extends StatelessWidget {
     final enabled = onChanged != null;
     final textStyle = TextStyle(
       color: enabled ? scheme.onSurface : scheme.onSurfaceVariant,
-      fontFamily: useMono ? HcomTheme.latinFontFamily : null,
+      fontFamily: useMono ? JanusTheme.latinFontFamily : null,
       fontSize: 13,
     );
     return MenuAnchor(
-      style: _hcomMenuSurfaceStyle(scheme, width: width),
+      style: _janusMenuSurfaceStyle(scheme, width: width),
       crossAxisUnconstrained: false,
       menuChildren: [
         for (final option in options)
           MenuItemButton(
-            style: _hcomMenuItemStyle(
+            style: _janusMenuItemStyle(
               scheme,
               selected: option == value,
             ),
@@ -5419,8 +5421,8 @@ class _AboutDetail extends StatelessWidget {
       );
 }
 
-class _AboutHpcommDialog extends StatelessWidget {
-  const _AboutHpcommDialog({required this.onClose});
+class _AboutJanusDialog extends StatelessWidget {
+  const _AboutJanusDialog({required this.onClose});
 
   final VoidCallback onClose;
 
@@ -5428,8 +5430,8 @@ class _AboutHpcommDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     const chinese = TextStyle(
-      fontFamily: HcomTheme.chineseFontFamily,
-      fontFamilyFallback: HcomTheme.chineseFallback,
+      fontFamily: JanusTheme.chineseFontFamily,
+      fontFamilyFallback: JanusTheme.chineseFallback,
     );
     return SizedBox(
       width: 560,
@@ -5444,7 +5446,7 @@ class _AboutHpcommDialog extends StatelessWidget {
           ),
           child: Icon(Icons.memory_rounded, color: scheme.onPrimaryContainer),
         ),
-        title: const Text('关于 HPCom', style: chinese),
+        title: const Text('关于 JANUS', style: chinese),
         content: SizedBox(
           width: 448,
           child: SingleChildScrollView(
@@ -5456,7 +5458,7 @@ class _AboutHpcommDialog extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'HPCom 串口调试助手',
+                      'JANUS 串口调试助手',
                       style: chinese.copyWith(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -5468,6 +5470,23 @@ class _AboutHpcommDialog extends StatelessWidget {
                       '面向 Windows 的 UART/COM 调试与协议帧解析工具。',
                       style: chinese.copyWith(color: scheme.onSurfaceVariant),
                     ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'JANUS · TITAN Universe',
+                      style: chinese.copyWith(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'TITAN 宇宙中的双向串口工作台；双面的门神雅努斯，对应 RX 与 TX。',
+                      style: chinese.copyWith(
+                        fontSize: 12,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
                     const SizedBox(height: 14),
                     const Wrap(spacing: 8, runSpacing: 8, children: [
                       Chip(
@@ -5477,6 +5496,10 @@ class _AboutHpcommDialog extends StatelessWidget {
                       Chip(
                         avatar: Icon(Icons.desktop_windows_outlined, size: 18),
                         label: Text('Windows 桌面端', style: chinese),
+                      ),
+                      Chip(
+                        avatar: Icon(Icons.hub_rounded, size: 18),
+                        label: Text('TITAN Universe', style: chinese),
                       ),
                     ]),
                     const SizedBox(height: 16),
@@ -5491,7 +5514,7 @@ class _AboutHpcommDialog extends StatelessWidget {
                               _AboutDetail(label: '开发者', value: 'Tylenoler'),
                               _AboutDetail(
                                 label: '开源仓库',
-                                value: 'github.com/Tylenoler/HPCom',
+                                value: 'github.com/Tylenoler/JANUS',
                               ),
                               _AboutDetail(
                                 label: '著作权',
@@ -5716,7 +5739,7 @@ class _IntegrityCalculatorPageState extends State<IntegrityCalculatorPage> {
         child: TextField(
           controller: controller,
           onChanged: (_) => _calculate(),
-          style: const TextStyle(fontFamily: HcomTheme.latinFontFamily),
+          style: const TextStyle(fontFamily: JanusTheme.latinFontFamily),
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp('[0-9a-fA-F]'))
           ],
@@ -5877,7 +5900,7 @@ class _IntegrityCalculatorPageState extends State<IntegrityCalculatorPage> {
                     maxLines: 3,
                     keyboardType: TextInputType.multiline,
                     style:
-                        const TextStyle(fontFamily: HcomTheme.latinFontFamily),
+                        const TextStyle(fontFamily: JanusTheme.latinFontFamily),
                     decoration: InputDecoration(
                       labelText: '待计算 HEX 数据',
                       hintText: '01 03 00 00 00 0A',
@@ -5975,7 +5998,7 @@ class _CrcResultLine extends StatelessWidget {
             value,
             style: TextStyle(
               color: color,
-              fontFamily: HcomTheme.latinFontFamily,
+              fontFamily: JanusTheme.latinFontFamily,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
-  <title id="title">HPCOM logo</title>
-  <desc id="desc">White H rails joined by five tall, colored protocol-frame blocks, above a clean HPCOM wordmark.</desc>
+  <title id="title">JANUS logo</title>
+  <desc id="desc">White H rails joined by five tall, colored protocol-frame blocks, above a clean JANUS wordmark.</desc>
 
   <!-- Main H rails -->
   <rect x="110" y="90" width="230" height="740" rx="54" fill="#FFFFFF"/>
@@ -15,5 +15,5 @@
 
   <!-- Deliberately font-based wordmark: clean, searchable, and easy to replace at brand-finalization. -->
   <text x="600" y="1045" text-anchor="middle" fill="#FFFFFF"
-        font-family="Arial, Helvetica, sans-serif" font-size="190" font-weight="700" letter-spacing="-7">HPCOM</text>
+        font-family="Arial, Helvetica, sans-serif" font-size="190" font-weight="700" letter-spacing="-7">JANUS</text>
 </svg>

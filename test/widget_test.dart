@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hcom/app_info.dart';
-import 'package:hcom/main.dart';
-import 'package:hcom/models/frame_protocol.dart';
-import 'package:hcom/models/log_copy.dart';
-import 'package:hcom/models/log_export.dart';
-import 'package:hcom/models/receive_framer.dart';
-import 'package:hcom/models/serial_entry.dart';
-import 'package:hcom/models/time_zone.dart';
-import 'package:hcom/screens/workbench_screen.dart';
-import 'package:hcom/theme/hcom_theme.dart';
+import 'package:janus/app_info.dart';
+import 'package:janus/main.dart';
+import 'package:janus/models/frame_protocol.dart';
+import 'package:janus/models/log_copy.dart';
+import 'package:janus/models/log_export.dart';
+import 'package:janus/models/receive_framer.dart';
+import 'package:janus/models/serial_entry.dart';
+import 'package:janus/models/time_zone.dart';
+import 'package:janus/screens/workbench_screen.dart';
+import 'package:janus/theme/janus_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -44,9 +44,9 @@ void main() {
 
   testWidgets('renders the UART workbench and its in-stream clear action',
       (tester) async {
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
-    expect(find.text('HPCom 调试助手'), findsOneWidget);
+    expect(find.text('JANUS 调试助手'), findsOneWidget);
     expect(find.text('HEX 原始'), findsOneWidget);
     expect(find.text('统计'), findsNothing);
     expect(find.text('时间轴'), findsNothing);
@@ -72,7 +72,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
     await tester.pumpAndSettle();
 
     final statusBar = find.byKey(const ValueKey('status-bar'));
@@ -83,7 +83,7 @@ void main() {
 
   testWidgets('mutes but does not disable the hide-line-numbers action',
       (tester) async {
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     await tester.tap(find.text('显示行号'));
     await tester.pumpAndSettle();
@@ -108,21 +108,23 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     await tester.tap(find.byTooltip('设置'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('关于 HPCom'));
+    await tester.ensureVisible(find.text('关于 JANUS'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('关于 HPCom'));
+    await tester.tap(find.text('关于 JANUS'));
     await tester.pumpAndSettle();
 
-    expect(find.text('HPCom 串口调试助手'), findsOneWidget);
+    expect(find.text('JANUS 串口调试助手'), findsOneWidget);
+    expect(find.text('JANUS · TITAN Universe'), findsOneWidget);
+    expect(find.text('TITAN Universe'), findsOneWidget);
     // Read the shipped constant instead of a literal so a version bump cannot
     // silently break this test.
     expect(find.text('版本 $applicationVersion'), findsAtLeastNWidgets(1));
     expect(find.text('Tylenoler'), findsOneWidget);
-    expect(find.text('github.com/Tylenoler/HPCom'), findsOneWidget);
+    expect(find.text('github.com/Tylenoler/JANUS'), findsOneWidget);
     expect(find.text('© 2026 Tylenoler'), findsOneWidget);
     expect(find.text('开发构建'), findsOneWidget);
     expect(find.text('未打包'), findsOneWidget);
@@ -162,7 +164,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     await tester.tap(find.byTooltip('打开校验模块'));
     await tester.pumpAndSettle();
@@ -194,7 +196,7 @@ void main() {
   });
 
   testWidgets('shows only in-scope Dock modules', (tester) async {
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     for (final unusedModule in [
       'CAN',
@@ -217,7 +219,7 @@ void main() {
 
   testWidgets('updates the selected baud rate while disconnected',
       (tester) async {
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     await tester.tap(find.text('115200'));
     await tester.pumpAndSettle();
@@ -230,7 +232,7 @@ void main() {
 
   testWidgets('adds a custom baud rate from the port configuration',
       (tester) async {
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     await tester.tap(find.byTooltip('添加自定义波特率'));
     await tester.pumpAndSettle();
@@ -253,7 +255,7 @@ void main() {
 
   testWidgets('collapses port configuration and keeps a compact send bar',
       (tester) async {
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     await tester.tap(find.byTooltip('收起串口配置').last);
     await tester.pumpAndSettle();
@@ -268,7 +270,7 @@ void main() {
 
   testWidgets('collapses either vertical dock from its center control',
       (tester) async {
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     final leftBefore = tester.getCenter(find.byTooltip('收起左侧 Dock')).dy;
     final leftBodyBefore =
@@ -303,7 +305,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     await tester.tap(find.text('周期'));
     await tester.pumpAndSettle();
@@ -318,7 +320,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     await tester.tap(find.text('循环'));
     await tester.pumpAndSettle();
@@ -335,7 +337,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
     await tester.tap(find.text('顺序'));
     await tester.pumpAndSettle();
 
@@ -354,7 +356,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     await tester.tap(find.text('顺序'));
     await tester.pumpAndSettle();
@@ -367,7 +369,7 @@ void main() {
   testWidgets(
       'links receive format after three send toggles and keeps it synchronized',
       (tester) async {
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     await tester.tap(find.text('普通'));
     await tester.pumpAndSettle();
@@ -405,7 +407,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
     await tester.tap(find.text('顺序'));
     await tester.pumpAndSettle();
 
@@ -434,7 +436,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
     await tester.tap(find.text('顺序'));
     await tester.pumpAndSettle();
 
@@ -447,13 +449,13 @@ void main() {
 
   testWidgets('uses packaged Noto Sans SC as the Chinese fallback',
       (tester) async {
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
-    final context = tester.element(find.text('HPCom 调试助手'));
+    final context = tester.element(find.text('JANUS 调试助手'));
     expect(Theme.of(context).textTheme.bodyMedium!.fontFamilyFallback,
-        contains(HcomTheme.chineseFontFamily));
+        contains(JanusTheme.chineseFontFamily));
     expect(Theme.of(context).textTheme.bodyMedium!.fontFamily,
-        HcomTheme.latinFontFamily);
+        JanusTheme.latinFontFamily);
   });
 
   testWidgets('opens the persisted log time-zone setting', (tester) async {
@@ -461,7 +463,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     await tester.tap(find.byTooltip('设置'));
     await tester.pumpAndSettle();
@@ -495,7 +497,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     await tester.tap(find.text('分包 · 模板长度字段'));
     await tester.pumpAndSettle();
@@ -530,7 +532,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     final buttonFinder = find.ancestor(
       of: find.text('实时保存 · 已关闭'),
@@ -556,7 +558,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
 
     expect(find.byKey(const ValueKey('field-stream')), findsNothing);
     await tester.tap(find.byTooltip('打开字段模块'));
@@ -578,7 +580,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const HcomApp());
+    await tester.pumpWidget(const JanusApp());
     await tester.tap(find.byTooltip('打开字段模块'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('模板库 1'));

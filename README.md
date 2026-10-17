@@ -1,12 +1,13 @@
-# HPCom / 串口调试助手
+# JANUS / 串口调试助手
 
 <p align="center">
-  <img src="Image/HPCOMLOGO.png" width="160" alt="HPCom logo" />
+  <img src="Image/JANUS_LOGO.png" width="160" alt="JANUS logo" />
 </p>
 
 <p align="center">
   <strong>Windows UART / COM workbench for reliable serial communication, live RX/TX inspection, logging, and protocol-frame analysis.</strong><br />
-  <strong>面向 Windows 的 UART / COM 调试工作台，提供稳定收发、实时 RX/TX 观察、日志与协议帧分析。</strong>
+  <strong>面向 Windows 的 UART / COM 调试工作台，提供稳定收发、实时 RX/TX 观察、日志与协议帧分析。</strong><br />
+  <em>JANUS · TITAN Universe — 双面的门神雅努斯，对应 RX 与 TX。</em>
 </p>
 
 <p align="center">
@@ -16,11 +17,11 @@
   <a href="#build-from-source--从源码构建">Build / 构建</a>
 </p>
 
-> **Current release / 当前版本：v1.0.1**
+> **Current release / 当前版本：v2.0.0**
 >
-> HPCom is a native Windows desktop tool built with Flutter for the workbench UI and Rust for the serial transport core. HPCom 是一个原生 Windows 桌面工具：Flutter 负责工作台界面，Rust 负责串口传输核心。
+> JANUS is a native Windows desktop tool built with Flutter for the workbench UI and Rust for the serial transport core. JANUS 是一个原生 Windows 桌面工具：Flutter 负责工作台界面，Rust 负责串口传输核心。
 
-![HPCom main window](docs/images/main-window.png)
+![JANUS main window](docs/images/main-window.png)
 
 ## Highlights / 核心能力
 
@@ -36,6 +37,8 @@
 
 ## Screenshots / 软件截图
 
+> The screenshots below were captured from HPCom v1.0.x; JANUS v2.0.0 screenshots will be refreshed before release. 下列截图摄于 HPCom v1.0.x；JANUS v2.0.0 的界面截图将在发布前更新。
+
 ### Connection setup / 连接配置
 
 Select a COM port, configure serial parameters, then open the port. 选择 COM 口、设置串口参数，然后打开端口。
@@ -50,17 +53,17 @@ The receive workspace can switch between HEX and text, show line numbers, and ap
 
 ## Download / 下载
 
-1. Open the [v1.0.0 release](https://github.com/Tylenoler/HPCom/releases/tag/v1.0.1).
+1. Open the [v2.0.0 release](https://github.com/Tylenoler/JANUS/releases/tag/v2.0.0).
 2. Download and extract the Windows x64 release archive.
-3. Keep every extracted file and folder together; `HPCom.exe`, `hcom-core.exe`, `data/`, and the bundled DLL files are one application package.
-4. Run `HPCom.exe`.
+3. Keep every extracted file and folder together; `JANUS.exe`, `janus-core.exe`, `data/`, and the bundled DLL files are one application package.
+4. Run `JANUS.exe`.
 
-1. 打开 [v1.0.0 发布页](https://github.com/Tylenoler/HPCom/releases/tag/v1.0.1)。
+1. 打开 [v2.0.0 发布页](https://github.com/Tylenoler/JANUS/releases/tag/v2.0.0)。
 2. 下载并解压 Windows x64 发布包。
-3. 请保持所有解压后的文件和文件夹在同一目录；`HPCom.exe`、`hcom-core.exe`、`data/` 与随附 DLL 共同组成完整程序。
-4. 运行 `HPCom.exe`。
+3. 请保持所有解压后的文件和文件夹在同一目录；`JANUS.exe`、`janus-core.exe`、`data/` 与随附 DLL 共同组成完整程序。
+4. 运行 `JANUS.exe`。
 
-> HPCom v1.0.1 is a portable Windows x64 package; no separate installer is required. HPCom v1.0.1 为免安装 Windows x64 包，无需单独安装程序。
+> JANUS v2.0.0 is a portable Windows x64 package; no separate installer is required. JANUS v2.0.0 为免安装 Windows x64 包，无需单独安装程序。
 
 ## Quick start / 快速开始
 
@@ -85,15 +88,15 @@ Use the send area for a single command, queued commands, or a periodic sequence.
 
 ### 3. Frame templates and validation / 协议帧模板与校验
 
-Create a frame definition when your data has a known layout: header, length, payload fields, checksum, and trailer. HPCom supports structured field parsing and common integrity calculations, including CRC-16/MODBUS and SUM-8. Definitions can be exported as JSON and imported on another machine. 当数据具有固定布局时，可建立帧定义：帧头、长度、载荷字段、校验与帧尾。HPCom 支持结构化字段解析及常用完整性计算，包括 CRC-16/MODBUS 与 SUM-8；定义可导出为 JSON，并在其他电脑导入。
+Create a frame definition when your data has a known layout: header, length, payload fields, checksum, and trailer. JANUS supports structured field parsing and common integrity calculations, including CRC-16/MODBUS and SUM-8. Definitions can be exported as JSON and imported on another machine. 当数据具有固定布局时，可建立帧定义：帧头、长度、载荷字段、校验与帧尾。JANUS 支持结构化字段解析及常用完整性计算，包括 CRC-16/MODBUS 与 SUM-8；定义可导出为 JSON，并在其他电脑导入。
 
 ### 4. Save logs / 保存日志
 
-Use the manual-save or real-time-save actions in the receive toolbar when a trace must be retained. Save logs outside the release folder so upgrading HPCom never mixes program files with captured data. 需要保留通信记录时，使用接收工具栏的手动保存或实时保存。建议把日志保存到发布目录之外，升级 HPCom 时不会混入程序文件。
+Use the manual-save or real-time-save actions in the receive toolbar when a trace must be retained. Save logs outside the release folder so upgrading JANUS never mixes program files with captured data. 需要保留通信记录时，使用接收工具栏的手动保存或实时保存。建议把日志保存到发布目录之外，升级 JANUS 时不会混入程序文件。
 
 ### 5. Advanced monitor mode / 高级旁路监听模式
 
-The source tree contains virtual-COM relay work. A complete end-user monitor-mode package requires the HCOM VCOM virtual-COM driver (`driver/hcom-vcom/`) approved through Windows kernel signing. That signed driver package is **not included in v1.0.1**, so this release should be used with physical COM ports. 源码中包含虚拟 COM 转发相关工作。完整的用户旁路监听包需要通过 Windows 内核签名审核的 HCOM VCOM 虚拟串口驱动（源码见 `driver/hcom-vcom/`）；该签名驱动 **未包含在 v1.0.1**，因此本版请使用物理 COM 口。
+The source tree contains virtual-COM relay work. A complete end-user monitor-mode package requires the JANUS VCOM virtual-COM driver (`driver/janus-vcom/`) approved through Windows kernel signing. The renamed driver package has **not been signed for v2.0.0** yet, so this release should be used with physical COM ports. 源码中包含虚拟 COM 转发相关工作。完整的用户旁路监听包需要通过 Windows 内核签名审核的 JANUS VCOM 虚拟串口驱动（源码见 `driver/janus-vcom/`）；改名后的驱动 **尚未在 v2.0.0 完成签名**，因此本版请使用物理 COM 口。
 
 ## Requirements / 系统要求
 
@@ -106,8 +109,8 @@ The source tree contains virtual-COM relay work. A complete end-user monitor-mod
 The checked-in sources are intended for Windows development. You need Flutter stable with Windows desktop support and Rust stable. 本仓库源码面向 Windows 开发；需要安装启用了 Windows desktop support 的 Flutter stable 与 Rust stable。
 
 ```powershell
-git clone https://github.com/Tylenoler/HPCom.git
-cd HPCom
+git clone https://github.com/Tylenoler/JANUS.git
+cd JANUS
 .\scripts\bootstrap.ps1 -Build
 ```
 
@@ -125,6 +128,7 @@ The portable output is created under `build\windows\x64\runner\Release\`. 发布
 |---|---|
 | `lib/` | Flutter desktop workbench / Flutter 桌面工作台 |
 | `core/` | Rust serial transport core / Rust 串口传输核心 |
+| `driver/janus-vcom/` | JANUS-owned virtual COM driver source / JANUS 虚拟串口驱动源码 |
 | `protocol/stdio-ndjson.md` | Flutter–Core IPC contract / Flutter 与 Core 的 IPC 契约 |
 | `Image/` | Product logo assets / 产品 Logo 资源 |
 | `docs/images/` | README screenshots / README 截图 |
@@ -132,9 +136,9 @@ The portable output is created under `build\windows\x64\runner\Release\`. 发布
 
 ## Validation and release notes / 验证与发布说明
 
-For v1.0.1, the Windows Release package was rebuilt from a clean Flutter build, passed the full test suite and launched successfully; the About dialog reports the in-app version `1.0.1`. v1.0.1 已从干净的 Flutter 构建重新生成 Windows Release，通过完整测试并成功启动；关于页显示应用内版本 `1.0.1`。
+For v2.0.0, the source tree was renamed from HPCom to JANUS and moved into the TITAN universe. The Windows Release package is rebuilt from a clean Flutter build and the full test suite; the About dialog reports the in-app version `2.0.0`. v2.0.0 将源码与品牌从 HPCom 重命名为 JANUS，并纳入 TITAN 宇宙；Windows Release 从干净的 Flutter 构建重新生成并通过完整测试，关于页显示应用内版本 `2.0.0`。
 
-This verification does **not** replace acceptance on every USB-UART adapter, device protocol, long-duration soak scenario, or the unavailable signed virtual-COM driver workflow. 本验证 **不等同于** 覆盖所有 USB 转串口适配器、设备协议、长时间稳定性场景，或尚未提供的签名虚拟 COM 驱动流程。
+This verification does **not** replace acceptance on every USB-UART adapter, device protocol, long-duration soak scenario, or the not-yet-signed virtual-COM driver workflow. 本验证 **不等同于** 覆盖所有 USB 转串口适配器、设备协议、长时间稳定性场景，或尚未签名的虚拟 COM 驱动流程。
 
 See [CHANGELOG.md](CHANGELOG.md) for version history. 版本历史见 [CHANGELOG.md](CHANGELOG.md)。
 

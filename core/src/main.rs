@@ -1,4 +1,4 @@
-//! HCOM Phase 2 serial core. The stdio protocol remains the process boundary;
+//! JANUS Phase 2 serial core. The stdio protocol remains the process boundary;
 //! serial I/O stays on Rust threads so the Flutter event loop is never blocked.
 
 use std::{
@@ -250,7 +250,7 @@ fn create_virtual_pair(payload: &Value) -> Result<(String, String), String> {
     #[cfg(not(windows))]
     {
         let _ = (external_port, monitor_port);
-        Err("HPCOM 虚拟串口驱动仅支持 Windows。".to_owned())
+        Err("JANUS 虚拟串口驱动仅支持 Windows。".to_owned())
     }
 }
 
@@ -670,7 +670,7 @@ fn open_monitor(
             session_id,
             sender,
         );
-        Err("HPCOM 旁路监听仅支持 Windows。".to_owned())
+        Err("JANUS 旁路监听仅支持 Windows。".to_owned())
     }
 }
 
@@ -695,7 +695,7 @@ fn main() {
 
     emit(
         "ready",
-        json!({"protocolVersion": 2, "coreVersion": "0.3.0"}),
+        json!({"protocolVersion": 2, "coreVersion": "0.4.0"}),
     );
     emit_state("disconnected", None);
 
@@ -798,7 +798,7 @@ fn main() {
                             .ok_or_else(|| "当前没有已连接的串口。".to_owned())?;
                         if opened.monitor.is_some() {
                             return Err(
-                                "旁路监听中由外部软件写入虚拟串口，HPCOM 不主动发送。".to_owned()
+                                "旁路监听中由外部软件写入虚拟串口，JANUS 不主动发送。".to_owned()
                             );
                         }
                         write_serial_data(opened, &bytes)
@@ -842,7 +842,7 @@ fn main() {
                             .as_ref()
                             .ok_or_else(|| "当前没有已连接的串口。".to_owned())?;
                         if opened.monitor.is_some() {
-                            return Err("旁路监听中不支持 HPCOM 周期发送。".to_owned());
+                            return Err("旁路监听中不支持 JANUS 周期发送。".to_owned());
                         }
                         let commands = payload_hex_commands(&command.payload)?;
                         let port = opened

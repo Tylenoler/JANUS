@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hcom/models/frame_protocol.dart';
-import 'package:hcom/models/multi_frame_analysis.dart';
-import 'package:hcom/models/serial_entry.dart';
+import 'package:janus/models/frame_protocol.dart';
+import 'package:janus/models/multi_frame_analysis.dart';
+import 'package:janus/models/serial_entry.dart';
 
 FrameTemplate _template(String id, String opcode, FrameRole role,
         {String? responseTo}) =>

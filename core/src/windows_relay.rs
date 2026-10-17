@@ -1,4 +1,4 @@
-//! Windows-only, overlapped-I/O relay for HCOM monitor mode.
+//! Windows-only, overlapped-I/O relay for JANUS monitor mode.
 //!
 //! A monitor is a byte pump, not a protocol parser: each direction owns one
 //! overlapped read and one destination writer. UI records are best-effort and

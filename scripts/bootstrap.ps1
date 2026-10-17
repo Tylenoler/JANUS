@@ -2,7 +2,7 @@
 param(
     [switch]$Build,
     [string]$FlutterSdk = 'D:\Fluttersdk\flutter',
-    [string]$RustRoot = 'D:\HCOM-Rust'
+    [string]$RustRoot = 'D:\Rust'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,7 +22,7 @@ $cargo = "$env:CARGO_HOME\bin\cargo.exe"
 
 # Flutter owns generated runner files. This command creates only missing Windows
 # platform files and preserves the handwritten lib/ and pubspec sources.
-& $flutter create --platforms=windows --project-name hcom --org io.github.tylenoler .
+& $flutter create --platforms=windows --project-name janus --org io.github.tylenoler .
 & $flutter pub get
 & $cargo fmt --manifest-path core/Cargo.toml -- --check
 & $cargo check --manifest-path core/Cargo.toml

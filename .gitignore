@@ -15,10 +15,10 @@ build/
 # Rust
 core/target/
 
-# HCOM VCOM build output and formal signing material are release artifacts,
+# JANUS VCOM build output and formal signing material are release artifacts,
 # never source-controlled credentials or binaries.
-driver/hcom-vcom/out/
-driver/hcom-vcom/dist/signed/
+driver/janus-vcom/out/
+driver/janus-vcom/dist/signed/
 
 # Local logs and captures
 *.log

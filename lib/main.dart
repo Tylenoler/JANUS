@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/workbench_screen.dart';
-import 'theme/hcom_theme.dart';
+import 'theme/janus_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const HcomApp());
+  runApp(const JanusApp());
 
   doWhenWindowReady(() {
     const initialSize = Size(1280, 720);
@@ -15,19 +15,19 @@ Future<void> main() async {
       ..minSize = const Size(600, 480)
       ..size = initialSize
       ..alignment = Alignment.center
-      ..title = 'HPCom 调试助手'
+      ..title = 'JANUS 调试助手'
       ..show();
   });
 }
 
-class HcomApp extends StatefulWidget {
-  const HcomApp({super.key});
+class JanusApp extends StatefulWidget {
+  const JanusApp({super.key});
 
   @override
-  State<HcomApp> createState() => _HcomAppState();
+  State<JanusApp> createState() => _JanusAppState();
 }
 
-class _HcomAppState extends State<HcomApp> {
+class _JanusAppState extends State<JanusApp> {
   ThemeMode _themeMode = ThemeMode.dark;
 
   @override
@@ -52,10 +52,10 @@ class _HcomAppState extends State<HcomApp> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'HPCom 调试助手',
+        title: 'JANUS 调试助手',
         debugShowCheckedModeBanner: false,
-        theme: HcomTheme.light(),
-        darkTheme: HcomTheme.dark(),
+        theme: JanusTheme.light(),
+        darkTheme: JanusTheme.dark(),
         themeMode: _themeMode,
         themeAnimationDuration: const Duration(milliseconds: 200),
         themeAnimationCurve: Easing.standard,

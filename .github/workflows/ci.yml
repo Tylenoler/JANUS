@@ -14,7 +14,7 @@ jobs:
         with:
           channel: stable
       - name: Generate Windows runner
-        run: flutter create --platforms=windows --project-name hcom --org io.github.tylenoler .
+        run: flutter create --platforms=windows --project-name janus --org io.github.tylenoler .
       - name: Verify Rust core
         run: |
           cargo fmt --manifest-path core/Cargo.toml -- --check
@@ -23,7 +23,7 @@ jobs:
         run: |
           $cargo = (Get-Command cargo).Source
           Write-Host "cargo resolved to $cargo"
-          "HCOM_CARGO_EXECUTABLE=$cargo" | Add-Content -Path $env:GITHUB_ENV
+          "JANUS_CARGO_EXECUTABLE=$cargo" | Add-Content -Path $env:GITHUB_ENV
           New-Item -ItemType Directory -Force -Path .tooling | Out-Null
           Set-Content -Path .tooling/cargo-executable.txt -Value $cargo -NoNewline
       - name: Verify Flutter shell

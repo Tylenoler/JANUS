@@ -3,7 +3,7 @@ param(
     [switch]$KeepRunning,
     [switch]$RequireVirtualComDriver,
     [string]$FlutterSdk = 'D:\Fluttersdk\flutter',
-    [string]$RustRoot = 'D:\HCOM-Rust'
+    [string]$RustRoot = 'D:\Rust'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,10 +41,10 @@ function Wait-ForReleaseArtifacts {
 
     $releaseDirectory = Join-Path $projectRoot 'build\windows\x64\runner\Release'
     $freshArtifacts = @(
-        (Join-Path $releaseDirectory 'HPCom.exe'),
+        (Join-Path $releaseDirectory 'JANUS.exe'),
         (Join-Path $releaseDirectory 'data\app.so')
     )
-    $coreArtifact = Join-Path $releaseDirectory 'hcom-core.exe'
+    $coreArtifact = Join-Path $releaseDirectory 'janus-core.exe'
     $deadline = (Get-Date).AddMinutes(5)
     do {
         $allFresh = $true
@@ -64,29 +64,29 @@ function Wait-ForReleaseArtifacts {
     throw 'Release artifacts were not all rebuilt within five minutes.'
 }
 
-function Test-HcomDriverPackageSignature {
+function Test-JanusDriverPackageSignature {
     param([Parameter(Mandatory = $true)][string]$PackageDirectory)
 
-    $sys = Join-Path $PackageDirectory 'hcom-vcom.sys'
-    $inf = Join-Path $PackageDirectory 'hcom-vcom.inf'
-    $cat = Join-Path $PackageDirectory 'hcom-vcom.cat'
-    $installer = Join-Path $PackageDirectory 'hcom-vcom-installer.exe'
+    $sys = Join-Path $PackageDirectory 'janus-vcom.sys'
+    $inf = Join-Path $PackageDirectory 'janus-vcom.inf'
+    $cat = Join-Path $PackageDirectory 'janus-vcom.cat'
+    $installer = Join-Path $PackageDirectory 'janus-vcom-installer.exe'
     foreach ($path in @($sys, $inf, $cat, $installer)) {
         if (-not (Test-Path -LiteralPath $path)) {
-            throw "HCOM VCOM driver package is incomplete: $path"
+            throw "JANUS VCOM driver package is incomplete: $path"
         }
     }
     $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue |
         Sort-Object FullName -Descending |
         Select-Object -First 1
     if ($null -eq $signtool) {
-        throw 'SignTool was not found; cannot verify the HCOM VCOM catalog signature.'
+        throw 'SignTool was not found; cannot verify the JANUS VCOM catalog signature.'
     }
     # A signed catalog, verified for kernel policy against the packaged SYS,
     # is the release gate. Do not substitute a local/test certificate here.
     & $signtool.FullName verify /kp /c $cat $sys
     if ($LASTEXITCODE -ne 0) {
-        throw 'HCOM VCOM catalog is not a trusted kernel-mode signature. Submit the package through the Microsoft Hardware Dev Center before release.'
+        throw 'JANUS VCOM catalog is not a trusted kernel-mode signature. Submit the package through the Microsoft Hardware Dev Center before release.'
     }
 }
 
@@ -108,25 +108,25 @@ try {
     $buildStartedAt = Get-Date
     Invoke-CheckedTool 'Build Windows Release' $flutter @(
         'build', 'windows', '--release', '--no-tree-shake-icons',
-        "--dart-define=HCOM_GIT_SHA=$revision",
-        "--dart-define=HCOM_BUILD_TIME=$buildTime"
+        "--dart-define=JANUS_GIT_SHA=$revision",
+        "--dart-define=JANUS_BUILD_TIME=$buildTime"
     )
     $artifacts = Wait-ForReleaseArtifacts $buildStartedAt
 
     $releaseDirectory = Split-Path -Parent $artifacts[0]
-    $driverSource = Join-Path $projectRoot 'driver\hcom-vcom\dist\signed\x64'
-    $driverDestination = Join-Path $releaseDirectory 'drivers\hcom-vcom'
+    $driverSource = Join-Path $projectRoot 'driver\janus-vcom\dist\signed\x64'
+    $driverDestination = Join-Path $releaseDirectory 'drivers\janus-vcom'
     if (Test-Path -LiteralPath $driverSource) {
-        Test-HcomDriverPackageSignature -PackageDirectory $driverSource
+        Test-JanusDriverPackageSignature -PackageDirectory $driverSource
         New-Item -ItemType Directory -Path $driverDestination -Force | Out-Null
         Copy-Item -Path (Join-Path $driverSource '*') -Destination $driverDestination -Recurse -Force
         Write-Host "Bundled virtual COM driver: $driverDestination" -ForegroundColor Green
     }
     elseif ($RequireVirtualComDriver) {
-        throw 'Signed HCOM VCOM package missing: expected driver\hcom-vcom\dist\signed\x64. A distributable monitor build must bundle the Microsoft-signed HCOM driver package.'
+        throw 'Signed JANUS VCOM package missing: expected driver\janus-vcom\dist\signed\x64. A distributable monitor build must bundle the Microsoft-signed JANUS driver package.'
     }
     else {
-        Write-Warning 'Signed HCOM VCOM package is not present. This build is not a complete distributable for monitor mode; rerun with -RequireVirtualComDriver before release.'
+        Write-Warning 'Signed JANUS VCOM package is not present. This build is not a complete distributable for monitor mode; rerun with -RequireVirtualComDriver before release.'
     }
     $hashFile = Join-Path $releaseDirectory 'SHA256SUMS.txt'
     $hashLines = $artifacts | ForEach-Object {
@@ -140,7 +140,7 @@ try {
     Start-Sleep -Seconds 5
     $process.Refresh()
     if ($process.HasExited -or -not $process.Responding) {
-        throw 'Release launch check failed: HPCom.exe did not remain responsive.'
+        throw 'Release launch check failed: JANUS.exe did not remain responsive.'
     }
     if (-not $KeepRunning) {
         Stop-Process -Id $process.Id -Force
@@ -148,7 +148,7 @@ try {
 
     Write-Host "`nBUILD SUCCEEDED" -ForegroundColor Green
     Write-Host "Release: $releaseDirectory"
-    Write-Host "Identity: App 1.0.1 · Core 0.3.0 · IPC v2 · $revision · $buildTime"
+    Write-Host "Identity: JANUS 2.0.0 · Core 0.4.0 · IPC v2 · $revision · $buildTime"
     Write-Host "SHA256: $hashFile"
 }
 finally {

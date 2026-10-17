@@ -1,6 +1,6 @@
-# HCOM Core IPC v2 — NDJSON over stdio
+# JANUS Core IPC v2 — NDJSON over stdio
 
-Phase 2 implements the Windows UART core behind the Phase 1 process boundary. Flutter launches `hcom-core` as a child process and exchanges one UTF-8 JSON object per line. `stdout` is reserved for protocol events; human diagnostics must go to `stderr`.
+Phase 2 implements the Windows UART core behind the Phase 1 process boundary. Flutter launches `janus-core` as a child process and exchanges one UTF-8 JSON object per line. `stdout` is reserved for protocol events; human diagnostics must go to `stderr`.
 
 ## Commands: Flutter → Rust
 
@@ -25,14 +25,14 @@ Phase 2 implements the Windows UART core behind the Phase 1 process boundary. Fl
 physical COM session. `send_break` accepts an optional `durationMs` between 10
 and 10000 (default 250). Both commands are rejected for relay sessions.
 
-`create_virtual_pair` calls the HCOM-owned `hcom-vcom.sys` control device at `\\.\HcomVcomCtl` with a versioned private IOCTL. The formal HCOM installer deploys the Microsoft-signed HCOM VCOM package before Core is launched; the Core neither shells out to nor searches for com0com or another third-party tool. Creating a kernel virtual serial device may require the system's administrator approval during installation. A release without the signed HCOM driver payload is deliberately reported as incomplete rather than asking end users to search for third-party software.
+`create_virtual_pair` calls the JANUS-owned `janus-vcom.sys` control device at `\\.\JanusVcomCtl` with a versioned private IOCTL. The formal JANUS installer deploys the Microsoft-signed JANUS VCOM package before Core is launched; the Core neither shells out to nor searches for com0com or another third-party tool. Creating a kernel virtual serial device may require the system's administrator approval during installation. A release without the signed JANUS driver payload is deliberately reported as incomplete rather than asking end users to search for third-party software.
 
-`open_monitor` opens the physical `port` and HCOM's endpoint of a virtual pair (`virtualPort`) with Windows overlapped I/O. Its physical-to-virtual and virtual-to-physical workers are independent, use fixed 64KiB buffers, and never call `FlushFileBuffers` in the forwarding path. Bytes from the external software are forwarded to the physical port and reported as TX; bytes received from the physical port are reported as RX and forwarded back to the virtual endpoint. Display batches remain best-effort and bounded, so UI/log pressure cannot delay the forwarding decision. `write_data` and `start_periodic` are rejected while this mode is active, ensuring HCOM remains a relay rather than a second writer.
+`open_monitor` opens the physical `port` and JANUS's endpoint of a virtual pair (`virtualPort`) with Windows overlapped I/O. Its physical-to-virtual and virtual-to-physical workers are independent, use fixed 64KiB buffers, and never call `FlushFileBuffers` in the forwarding path. Bytes from the external software are forwarded to the physical port and reported as TX; bytes received from the physical port are reported as RX and forwarded back to the virtual endpoint. Display batches remain best-effort and bounded, so UI/log pressure cannot delay the forwarding decision. `write_data` and `start_periodic` are rejected while this mode is active, ensuring JANUS remains a relay rather than a second writer.
 
 ## Events: Rust → Flutter
 
 ```json
-{"event":"ready","payload":{"protocolVersion":2,"coreVersion":"0.3.0"}}
+{"event":"ready","payload":{"protocolVersion":2,"coreVersion":"0.4.0"}}
 {"event":"pong","payload":{}}
 {"event":"ports","payload":{"ports":[{"port":"COM3","description":"USB Serial Device","hardwareId":"USB\\VID_1A86&PID_7523","kind":"usb"}]}}
 {"event":"serial_data","payload":{"direction":"rx","timestamp":"2026-09-10T12:00:00.000Z","bytes":"AA 55","droppedBytes":0,"droppedBurstBytes":0}}

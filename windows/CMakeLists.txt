@@ -1,10 +1,10 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(hcom LANGUAGES CXX)
+project(janus LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "HPCom")
+set(BINARY_NAME "JANUS")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -73,70 +73,70 @@ set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
 
 # Build the Rust Core whenever its source has changed, then deploy it beside
-# HPCom.exe so a Flutter-only build can never package a stale Core executable.
-set(HCOM_CORE_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/../core/Cargo.toml")
-set(HCOM_CORE_EXECUTABLE "${CMAKE_CURRENT_SOURCE_DIR}/../core/target/release/hcom-core.exe")
-set(HCOM_CARGO_EXECUTABLE "" CACHE FILEPATH
-  "Path to the Cargo executable used to build the HCOM Rust Core")
-if(NOT HCOM_CARGO_EXECUTABLE)
-  # Resolution order: -DHCOM_CARGO_EXECUTABLE / cached value, then the pointer
+# JANUS.exe so a Flutter-only build can never package a stale Core executable.
+set(JANUS_CORE_MANIFEST "${CMAKE_CURRENT_SOURCE_DIR}/../core/Cargo.toml")
+set(JANUS_CORE_EXECUTABLE "${CMAKE_CURRENT_SOURCE_DIR}/../core/target/release/janus-core.exe")
+set(JANUS_CARGO_EXECUTABLE "" CACHE FILEPATH
+  "Path to the Cargo executable used to build the JANUS Rust Core")
+if(NOT JANUS_CARGO_EXECUTABLE)
+  # Resolution order: -DJANUS_CARGO_EXECUTABLE / cached value, then the pointer
   # file .tooling/cargo-executable.txt that CI writes before the build (the
   # Flutter Windows build does not forward the runner's environment to CMake),
-  # then $ENV{HCOM_CARGO_EXECUTABLE}, the known toolchain layouts, and PATH.
-  # Hard-coding D:\HCOM-Rust alone made every other machine fail the build with
-  # "Cargo was not found".
-  set(_hcom_cargo_pointer
+  # then $ENV{JANUS_CARGO_EXECUTABLE}, the known toolchain layouts, and PATH.
+  # Hard-coding a single toolchain path alone made every other machine fail the
+  # build with "Cargo was not found".
+  set(_janus_cargo_pointer
     "${CMAKE_CURRENT_SOURCE_DIR}/../.tooling/cargo-executable.txt")
-  if(EXISTS "${_hcom_cargo_pointer}")
-    file(STRINGS "${_hcom_cargo_pointer}" _hcom_cargo_pointer_value
+  if(EXISTS "${_janus_cargo_pointer}")
+    file(STRINGS "${_janus_cargo_pointer}" _janus_cargo_pointer_value
       LIMIT_COUNT 1)
-    if(EXISTS "${_hcom_cargo_pointer_value}")
-      set(HCOM_CARGO_EXECUTABLE "${_hcom_cargo_pointer_value}")
+    if(EXISTS "${_janus_cargo_pointer_value}")
+      set(JANUS_CARGO_EXECUTABLE "${_janus_cargo_pointer_value}")
     endif()
   endif()
 endif()
-if(NOT HCOM_CARGO_EXECUTABLE AND DEFINED ENV{HCOM_CARGO_EXECUTABLE})
-  set(HCOM_CARGO_EXECUTABLE "$ENV{HCOM_CARGO_EXECUTABLE}")
+if(NOT JANUS_CARGO_EXECUTABLE AND DEFINED ENV{JANUS_CARGO_EXECUTABLE})
+  set(JANUS_CARGO_EXECUTABLE "$ENV{JANUS_CARGO_EXECUTABLE}")
 endif()
-if(NOT HCOM_CARGO_EXECUTABLE AND EXISTS "D:/HCOM-Rust/cargo/bin/cargo.exe")
-  set(HCOM_CARGO_EXECUTABLE "D:/HCOM-Rust/cargo/bin/cargo.exe")
+if(NOT JANUS_CARGO_EXECUTABLE AND EXISTS "D:/Rust/cargo/bin/cargo.exe")
+  set(JANUS_CARGO_EXECUTABLE "D:/Rust/cargo/bin/cargo.exe")
 endif()
-if(NOT HCOM_CARGO_EXECUTABLE)
-  foreach(_hcom_cargo_candidate
+if(NOT JANUS_CARGO_EXECUTABLE)
+  foreach(_janus_cargo_candidate
       "$ENV{CARGO_HOME}/bin/cargo.exe"
       "$ENV{USERPROFILE}/.cargo/bin/cargo.exe"
       "$ENV{HOME}/.cargo/bin/cargo.exe")
-    if(EXISTS "${_hcom_cargo_candidate}")
-      set(HCOM_CARGO_EXECUTABLE "${_hcom_cargo_candidate}")
+    if(EXISTS "${_janus_cargo_candidate}")
+      set(JANUS_CARGO_EXECUTABLE "${_janus_cargo_candidate}")
       break()
     endif()
   endforeach()
 endif()
-if(NOT HCOM_CARGO_EXECUTABLE)
-  find_program(HCOM_CARGO_EXECUTABLE NAMES cargo cargo.exe)
+if(NOT JANUS_CARGO_EXECUTABLE)
+  find_program(JANUS_CARGO_EXECUTABLE NAMES cargo cargo.exe)
 endif()
-if(NOT HCOM_CARGO_EXECUTABLE)
+if(NOT JANUS_CARGO_EXECUTABLE)
   message(FATAL_ERROR
-    "Cargo was not found. Set HCOM_CARGO_EXECUTABLE, write the executable path "
+    "Cargo was not found. Set JANUS_CARGO_EXECUTABLE, write the executable path "
     "to .tooling/cargo-executable.txt, or install Rust/Cargo. "
     "CARGO_HOME='$ENV{CARGO_HOME}' USERPROFILE='$ENV{USERPROFILE}' "
     "HOME='$ENV{HOME}'")
 endif()
-message(STATUS "HPCom Rust Core will be built with: ${HCOM_CARGO_EXECUTABLE}")
-file(GLOB_RECURSE HCOM_CORE_SOURCES CONFIGURE_DEPENDS
+message(STATUS "JANUS Rust Core will be built with: ${JANUS_CARGO_EXECUTABLE}")
+file(GLOB_RECURSE JANUS_CORE_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/../core/src/*.rs")
 add_custom_command(
-  OUTPUT "${HCOM_CORE_EXECUTABLE}"
-  COMMAND "${HCOM_CARGO_EXECUTABLE}" build --release --manifest-path "${HCOM_CORE_MANIFEST}"
+  OUTPUT "${JANUS_CORE_EXECUTABLE}"
+  COMMAND "${JANUS_CARGO_EXECUTABLE}" build --release --manifest-path "${JANUS_CORE_MANIFEST}"
   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/.."
-  DEPENDS "${HCOM_CORE_MANIFEST}"
+  DEPENDS "${JANUS_CORE_MANIFEST}"
           "${CMAKE_CURRENT_SOURCE_DIR}/../core/Cargo.lock"
-          ${HCOM_CORE_SOURCES}
-  COMMENT "Building HCOM Rust Core"
+          ${JANUS_CORE_SOURCES}
+  COMMENT "Building JANUS Rust Core"
   VERBATIM)
-add_custom_target(hcom_core_build ALL DEPENDS "${HCOM_CORE_EXECUTABLE}")
-add_dependencies(${BINARY_NAME} hcom_core_build)
-install(FILES "${HCOM_CORE_EXECUTABLE}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+add_custom_target(janus_core_build ALL DEPENDS "${JANUS_CORE_EXECUTABLE}")
+add_dependencies(${BINARY_NAME} janus_core_build)
+install(FILES "${JANUS_CORE_EXECUTABLE}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"

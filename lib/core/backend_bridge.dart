@@ -4,7 +4,7 @@ import 'dart:io';
 
 /// Phase 1 IPC boundary: newline-delimited JSON over a Rust child process.
 /// An environment override supports development; packaged Windows builds use
-/// a sibling `hcom-core.exe`. See protocol/stdio-ndjson.md.
+/// a sibling `janus-core.exe`. See protocol/stdio-ndjson.md.
 class BackendBridge {
   Process? _process;
   StreamSubscription<String>? _stdoutSubscription;
@@ -39,11 +39,11 @@ class BackendBridge {
   }
 
   String? _findExecutable() {
-    final override = Platform.environment['HCOM_CORE_PATH'];
+    final override = Platform.environment['JANUS_CORE_PATH'];
     if (override != null && override.isNotEmpty) return override;
 
     final bundled = File(
-        '${File(Platform.resolvedExecutable).parent.path}${Platform.pathSeparator}hcom-core.exe');
+        '${File(Platform.resolvedExecutable).parent.path}${Platform.pathSeparator}janus-core.exe');
     return bundled.existsSync() ? bundled.path : null;
   }
 

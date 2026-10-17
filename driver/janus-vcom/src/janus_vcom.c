@@ -1,5 +1,5 @@
 /*
- * HCOM VCOM KMDF prototype.
+ * JANUS VCOM KMDF prototype.
  *
  * A control device creates two named, buffered serial endpoints. Writes on
  * either endpoint are copied into the peer's bounded ring buffer or complete
@@ -12,16 +12,16 @@
 #include <ntstrsafe.h>
 #include <wdf.h>
 
-#include "../include/hcom_vcom_public.h"
+#include "../include/janus_vcom_public.h"
 
-#define HCOM_VCOM_POOL_TAG 'mVcH'
-#define HCOM_VCOM_MAX_PAIRS 32u
-#define HCOM_VCOM_RING_BYTES (256u * 1024u)
+#define JANUS_VCOM_POOL_TAG 'JANV'
+#define JANUS_VCOM_MAX_PAIRS 32u
+#define JANUS_VCOM_RING_BYTES (256u * 1024u)
 
-typedef struct _HCOM_VCOM_PAIR HCOM_VCOM_PAIR, *PHCOM_VCOM_PAIR;
+typedef struct _JANUS_VCOM_PAIR JANUS_VCOM_PAIR, *PJANUS_VCOM_PAIR;
 
-typedef struct _HCOM_VCOM_PORT_CONTEXT {
-    PHCOM_VCOM_PAIR Pair;
+typedef struct _JANUS_VCOM_PORT_CONTEXT {
+    PJANUS_VCOM_PAIR Pair;
     ULONG Index;
     WDFQUEUE PendingReads;
     SERIAL_BAUD_RATE BaudRate;
@@ -29,53 +29,53 @@ typedef struct _HCOM_VCOM_PORT_CONTEXT {
     SERIAL_HANDFLOW HandFlow;
     SERIAL_CHARS Chars;
     SERIAL_TIMEOUTS Timeouts;
-} HCOM_VCOM_PORT_CONTEXT, *PHCOM_VCOM_PORT_CONTEXT;
-WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(HCOM_VCOM_PORT_CONTEXT, HcomPortGetContext);
+} JANUS_VCOM_PORT_CONTEXT, *PJANUS_VCOM_PORT_CONTEXT;
+WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(JANUS_VCOM_PORT_CONTEXT, JanusPortGetContext);
 
-struct _HCOM_VCOM_PAIR {
+struct _JANUS_VCOM_PAIR {
     WDFWAITLOCK Lock;
     WDFDEVICE Endpoint[2];
     UCHAR* Ring[2];
     SIZE_T Head[2];
     SIZE_T Tail[2];
     SIZE_T Count[2];
-    WCHAR ExternalPort[HCOM_VCOM_PORT_NAME_CHARS];
-    WCHAR MonitorPort[HCOM_VCOM_PORT_NAME_CHARS];
+    WCHAR ExternalPort[JANUS_VCOM_PORT_NAME_CHARS];
+    WCHAR MonitorPort[JANUS_VCOM_PORT_NAME_CHARS];
     ULONG DroppedBytes;
 };
 
-typedef struct _HCOM_VCOM_DRIVER_CONTEXT {
+typedef struct _JANUS_VCOM_DRIVER_CONTEXT {
     WDFWAITLOCK Lock;
     WDFDEVICE ControlDevice;
-    PHCOM_VCOM_PAIR Pairs[HCOM_VCOM_MAX_PAIRS];
-} HCOM_VCOM_DRIVER_CONTEXT, *PHCOM_VCOM_DRIVER_CONTEXT;
-WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(HCOM_VCOM_DRIVER_CONTEXT, HcomDriverGetContext);
+    PJANUS_VCOM_PAIR Pairs[JANUS_VCOM_MAX_PAIRS];
+} JANUS_VCOM_DRIVER_CONTEXT, *PJANUS_VCOM_DRIVER_CONTEXT;
+WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(JANUS_VCOM_DRIVER_CONTEXT, JanusDriverGetContext);
 
 DRIVER_INITIALIZE DriverEntry;
-EVT_WDF_DRIVER_DEVICE_ADD HcomEvtDeviceAdd;
-EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL HcomEvtControlDeviceIo;
-EVT_WDF_IO_QUEUE_IO_READ HcomEvtPortRead;
-EVT_WDF_IO_QUEUE_IO_WRITE HcomEvtPortWrite;
-EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL HcomEvtPortIo;
+EVT_WDF_DRIVER_DEVICE_ADD JanusEvtDeviceAdd;
+EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL JanusEvtControlDeviceIo;
+EVT_WDF_IO_QUEUE_IO_READ JanusEvtPortRead;
+EVT_WDF_IO_QUEUE_IO_WRITE JanusEvtPortWrite;
+EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL JanusEvtPortIo;
 
-static const UNICODE_STRING HcomControlName = RTL_CONSTANT_STRING(L"\\Device\\HcomVcomCtl");
-static const UNICODE_STRING HcomControlLink = RTL_CONSTANT_STRING(L"\\DosDevices\\HcomVcomCtl");
-static const UNICODE_STRING HcomControlSddl = RTL_CONSTANT_STRING(L"D:P(A;;GA;;;SY)(A;;GA;;;BA)");
-static const UNICODE_STRING HcomPortSddl = RTL_CONSTANT_STRING(L"D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GRGW;;;WD)");
+static const UNICODE_STRING JanusControlName = RTL_CONSTANT_STRING(L"\\Device\\JanusVcomCtl");
+static const UNICODE_STRING JanusControlLink = RTL_CONSTANT_STRING(L"\\DosDevices\\JanusVcomCtl");
+static const UNICODE_STRING JanusControlSddl = RTL_CONSTANT_STRING(L"D:P(A;;GA;;;SY)(A;;GA;;;BA)");
+static const UNICODE_STRING JanusPortSddl = RTL_CONSTANT_STRING(L"D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GRGW;;;WD)");
 
-static NTSTATUS HcomCreateControlDevice(_In_ WDFDRIVER Driver);
-static NTSTATUS HcomCreatePair(
+static NTSTATUS JanusCreateControlDevice(_In_ WDFDRIVER Driver);
+static NTSTATUS JanusCreatePair(
     _In_ WDFDRIVER Driver,
-    _In_ const HCOM_VCOM_CREATE_PAIR_REQUEST* Request);
-static NTSTATUS HcomCreateEndpoint(
+    _In_ const JANUS_VCOM_CREATE_PAIR_REQUEST* Request);
+static NTSTATUS JanusCreateEndpoint(
     _In_ WDFDRIVER Driver,
-    _In_ PHCOM_VCOM_PAIR Pair,
+    _In_ PJANUS_VCOM_PAIR Pair,
     _In_ ULONG Index,
     _In_z_ PCWSTR PortName);
-static VOID HcomComplete(_In_ WDFREQUEST Request, _In_ NTSTATUS Status, _In_ ULONG_PTR Information);
-static BOOLEAN HcomPortNameValid(_In_reads_(HCOM_VCOM_PORT_NAME_CHARS) PCWSTR PortName);
-static NTSTATUS HcomSerialIo(
-    _In_ PHCOM_VCOM_PORT_CONTEXT Port,
+static VOID JanusComplete(_In_ WDFREQUEST Request, _In_ NTSTATUS Status, _In_ ULONG_PTR Information);
+static BOOLEAN JanusPortNameValid(_In_reads_(JANUS_VCOM_PORT_NAME_CHARS) PCWSTR PortName);
+static NTSTATUS JanusSerialIo(
+    _In_ PJANUS_VCOM_PORT_CONTEXT Port,
     _In_ WDFREQUEST Request,
     _In_ ULONG IoControlCode,
     _In_ size_t OutputBufferLength,
@@ -91,66 +91,66 @@ DriverEntry(
     WDFDRIVER driver;
     NTSTATUS status;
 
-    WDF_DRIVER_CONFIG_INIT(&config, HcomEvtDeviceAdd);
-    WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, HCOM_VCOM_DRIVER_CONTEXT);
+    WDF_DRIVER_CONFIG_INIT(&config, JanusEvtDeviceAdd);
+    WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, JANUS_VCOM_DRIVER_CONTEXT);
     status = WdfDriverCreate(DriverObject, RegistryPath, &attributes, &config, &driver);
     if (!NT_SUCCESS(status)) {
         return status;
     }
-    return HcomCreateControlDevice(driver);
+    return JanusCreateControlDevice(driver);
 }
 
 NTSTATUS
-HcomEvtDeviceAdd(
+JanusEvtDeviceAdd(
     _In_ WDFDRIVER Driver,
     _Inout_ PWDFDEVICE_INIT DeviceInit)
 {
     UNREFERENCED_PARAMETER(Driver);
-    /* The INF installs a ROOT\HCOMVCOM device only to start this KMDF
+    /* The INF installs a ROOT\JANUSVCOM device only to start this KMDF
        control-plane driver. Endpoint devices are created on demand by IOCTL. */
     WdfDeviceInitFree(DeviceInit);
     return STATUS_SUCCESS;
 }
 
 static NTSTATUS
-HcomCreateControlDevice(_In_ WDFDRIVER Driver)
+JanusCreateControlDevice(_In_ WDFDRIVER Driver)
 {
     PWDFDEVICE_INIT init;
     WDF_OBJECT_ATTRIBUTES attributes;
     WDF_IO_QUEUE_CONFIG queueConfig;
     WDFDEVICE device;
-    PHCOM_VCOM_DRIVER_CONTEXT context;
+    PJANUS_VCOM_DRIVER_CONTEXT context;
     NTSTATUS status;
 
-    init = WdfControlDeviceInitAllocate(Driver, &HcomControlSddl);
+    init = WdfControlDeviceInitAllocate(Driver, &JanusControlSddl);
     if (init == NULL) {
         return STATUS_INSUFFICIENT_RESOURCES;
     }
-    status = WdfDeviceInitAssignName(init, &HcomControlName);
+    status = WdfDeviceInitAssignName(init, &JanusControlName);
     if (!NT_SUCCESS(status)) {
         WdfDeviceInitFree(init);
         return status;
     }
-    WdfDeviceInitSetDeviceType(init, FILE_DEVICE_HCOM_VCOM);
+    WdfDeviceInitSetDeviceType(init, FILE_DEVICE_JANUS_VCOM);
     WdfDeviceInitSetIoType(init, WdfDeviceIoBuffered);
     WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
     status = WdfDeviceCreate(&init, &attributes, &device);
     if (!NT_SUCCESS(status)) {
         return status;
     }
-    status = WdfDeviceCreateSymbolicLink(device, &HcomControlLink);
+    status = WdfDeviceCreateSymbolicLink(device, &JanusControlLink);
     if (!NT_SUCCESS(status)) {
         WdfObjectDelete(device);
         return status;
     }
     WDF_IO_QUEUE_CONFIG_INIT_DEFAULT_QUEUE(&queueConfig, WdfIoQueueDispatchSequential);
-    queueConfig.EvtIoDeviceControl = HcomEvtControlDeviceIo;
+    queueConfig.EvtIoDeviceControl = JanusEvtControlDeviceIo;
     status = WdfIoQueueCreate(device, &queueConfig, WDF_NO_OBJECT_ATTRIBUTES, WDF_NO_HANDLE);
     if (!NT_SUCCESS(status)) {
         WdfObjectDelete(device);
         return status;
     }
-    context = HcomDriverGetContext(Driver);
+    context = JanusDriverGetContext(Driver);
     context->ControlDevice = device;
     status = WdfWaitLockCreate(WDF_NO_OBJECT_ATTRIBUTES, &context->Lock);
     if (!NT_SUCCESS(status)) {
@@ -162,7 +162,7 @@ HcomCreateControlDevice(_In_ WDFDRIVER Driver)
 }
 
 VOID
-HcomEvtControlDeviceIo(
+JanusEvtControlDeviceIo(
     _In_ WDFQUEUE Queue,
     _In_ WDFREQUEST Request,
     _In_ size_t OutputBufferLength,
@@ -171,52 +171,52 @@ HcomEvtControlDeviceIo(
 {
     WDFDEVICE device = WdfIoQueueGetDevice(Queue);
     WDFDRIVER driver = WdfDeviceGetDriver(device);
-    HCOM_VCOM_CREATE_PAIR_REQUEST* createRequest;
+    JANUS_VCOM_CREATE_PAIR_REQUEST* createRequest;
     size_t received;
     NTSTATUS status;
 
     UNREFERENCED_PARAMETER(OutputBufferLength);
-    if (IoControlCode != IOCTL_HCOM_VCOM_CREATE_PAIR) {
-        HcomComplete(Request, STATUS_INVALID_DEVICE_REQUEST, 0);
+    if (IoControlCode != IOCTL_JANUS_VCOM_CREATE_PAIR) {
+        JanusComplete(Request, STATUS_INVALID_DEVICE_REQUEST, 0);
         return;
     }
-    if (InputBufferLength != sizeof(HCOM_VCOM_CREATE_PAIR_REQUEST)) {
-        HcomComplete(Request, STATUS_INVALID_BUFFER_SIZE, 0);
+    if (InputBufferLength != sizeof(JANUS_VCOM_CREATE_PAIR_REQUEST)) {
+        JanusComplete(Request, STATUS_INVALID_BUFFER_SIZE, 0);
         return;
     }
     status = WdfRequestRetrieveInputBuffer(
         Request,
-        sizeof(HCOM_VCOM_CREATE_PAIR_REQUEST),
+        sizeof(JANUS_VCOM_CREATE_PAIR_REQUEST),
         (PVOID*)&createRequest,
         &received);
     if (!NT_SUCCESS(status) || received != sizeof(*createRequest)) {
-        HcomComplete(Request, NT_SUCCESS(status) ? STATUS_INVALID_BUFFER_SIZE : status, 0);
+        JanusComplete(Request, NT_SUCCESS(status) ? STATUS_INVALID_BUFFER_SIZE : status, 0);
         return;
     }
-    if (createRequest->Version != HCOM_VCOM_PROTOCOL_VERSION ||
-        !HcomPortNameValid(createRequest->ExternalPort) ||
-        !HcomPortNameValid(createRequest->MonitorPort) ||
+    if (createRequest->Version != JANUS_VCOM_PROTOCOL_VERSION ||
+        !JanusPortNameValid(createRequest->ExternalPort) ||
+        !JanusPortNameValid(createRequest->MonitorPort) ||
         _wcsicmp(createRequest->ExternalPort, createRequest->MonitorPort) == 0) {
-        HcomComplete(Request, STATUS_INVALID_PARAMETER, 0);
+        JanusComplete(Request, STATUS_INVALID_PARAMETER, 0);
         return;
     }
-    status = HcomCreatePair(driver, createRequest);
-    HcomComplete(Request, status, 0);
+    status = JanusCreatePair(driver, createRequest);
+    JanusComplete(Request, status, 0);
 }
 
 static NTSTATUS
-HcomCreatePair(
+JanusCreatePair(
     _In_ WDFDRIVER Driver,
-    _In_ const HCOM_VCOM_CREATE_PAIR_REQUEST* Request)
+    _In_ const JANUS_VCOM_CREATE_PAIR_REQUEST* Request)
 {
-    PHCOM_VCOM_DRIVER_CONTEXT driverContext = HcomDriverGetContext(Driver);
-    PHCOM_VCOM_PAIR pair;
+    PJANUS_VCOM_DRIVER_CONTEXT driverContext = JanusDriverGetContext(Driver);
+    PJANUS_VCOM_PAIR pair;
     ULONG index;
     NTSTATUS status;
 
     WdfWaitLockAcquire(driverContext->Lock, NULL);
-    for (index = 0; index < HCOM_VCOM_MAX_PAIRS; ++index) {
-        PHCOM_VCOM_PAIR existing = driverContext->Pairs[index];
+    for (index = 0; index < JANUS_VCOM_MAX_PAIRS; ++index) {
+        PJANUS_VCOM_PAIR existing = driverContext->Pairs[index];
         if (existing == NULL) {
             break;
         }
@@ -228,11 +228,11 @@ HcomCreatePair(
             return STATUS_OBJECT_NAME_COLLISION;
         }
     }
-    if (index == HCOM_VCOM_MAX_PAIRS) {
+    if (index == JANUS_VCOM_MAX_PAIRS) {
         WdfWaitLockRelease(driverContext->Lock);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
-    pair = ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(*pair), HCOM_VCOM_POOL_TAG);
+    pair = ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(*pair), JANUS_VCOM_POOL_TAG);
     if (pair == NULL) {
         WdfWaitLockRelease(driverContext->Lock);
         return STATUS_INSUFFICIENT_RESOURCES;
@@ -240,26 +240,26 @@ HcomCreatePair(
     RtlZeroMemory(pair, sizeof(*pair));
     RtlStringCchCopyW(pair->ExternalPort, RTL_NUMBER_OF(pair->ExternalPort), Request->ExternalPort);
     RtlStringCchCopyW(pair->MonitorPort, RTL_NUMBER_OF(pair->MonitorPort), Request->MonitorPort);
-    pair->Ring[0] = ExAllocatePool2(POOL_FLAG_NON_PAGED, HCOM_VCOM_RING_BYTES, HCOM_VCOM_POOL_TAG);
-    pair->Ring[1] = ExAllocatePool2(POOL_FLAG_NON_PAGED, HCOM_VCOM_RING_BYTES, HCOM_VCOM_POOL_TAG);
+    pair->Ring[0] = ExAllocatePool2(POOL_FLAG_NON_PAGED, JANUS_VCOM_RING_BYTES, JANUS_VCOM_POOL_TAG);
+    pair->Ring[1] = ExAllocatePool2(POOL_FLAG_NON_PAGED, JANUS_VCOM_RING_BYTES, JANUS_VCOM_POOL_TAG);
     if (pair->Ring[0] == NULL || pair->Ring[1] == NULL) {
-        if (pair->Ring[0] != NULL) ExFreePoolWithTag(pair->Ring[0], HCOM_VCOM_POOL_TAG);
-        if (pair->Ring[1] != NULL) ExFreePoolWithTag(pair->Ring[1], HCOM_VCOM_POOL_TAG);
-        ExFreePoolWithTag(pair, HCOM_VCOM_POOL_TAG);
+        if (pair->Ring[0] != NULL) ExFreePoolWithTag(pair->Ring[0], JANUS_VCOM_POOL_TAG);
+        if (pair->Ring[1] != NULL) ExFreePoolWithTag(pair->Ring[1], JANUS_VCOM_POOL_TAG);
+        ExFreePoolWithTag(pair, JANUS_VCOM_POOL_TAG);
         WdfWaitLockRelease(driverContext->Lock);
         return STATUS_INSUFFICIENT_RESOURCES;
     }
     status = WdfWaitLockCreate(WDF_NO_OBJECT_ATTRIBUTES, &pair->Lock);
     if (!NT_SUCCESS(status)) {
-        ExFreePoolWithTag(pair->Ring[0], HCOM_VCOM_POOL_TAG);
-        ExFreePoolWithTag(pair->Ring[1], HCOM_VCOM_POOL_TAG);
-        ExFreePoolWithTag(pair, HCOM_VCOM_POOL_TAG);
+        ExFreePoolWithTag(pair->Ring[0], JANUS_VCOM_POOL_TAG);
+        ExFreePoolWithTag(pair->Ring[1], JANUS_VCOM_POOL_TAG);
+        ExFreePoolWithTag(pair, JANUS_VCOM_POOL_TAG);
         WdfWaitLockRelease(driverContext->Lock);
         return status;
     }
-    status = HcomCreateEndpoint(Driver, pair, 0, pair->ExternalPort);
+    status = JanusCreateEndpoint(Driver, pair, 0, pair->ExternalPort);
     if (NT_SUCCESS(status)) {
-        status = HcomCreateEndpoint(Driver, pair, 1, pair->MonitorPort);
+        status = JanusCreateEndpoint(Driver, pair, 1, pair->MonitorPort);
     }
     if (!NT_SUCCESS(status)) {
         /* Endpoint teardown is intentionally handled by WDF at unload. Do not
@@ -273,9 +273,9 @@ HcomCreatePair(
 }
 
 static NTSTATUS
-HcomCreateEndpoint(
+JanusCreateEndpoint(
     _In_ WDFDRIVER Driver,
-    _In_ PHCOM_VCOM_PAIR Pair,
+    _In_ PJANUS_VCOM_PAIR Pair,
     _In_ ULONG Index,
     _In_z_ PCWSTR PortName)
 {
@@ -287,12 +287,12 @@ HcomCreateEndpoint(
     WDF_OBJECT_ATTRIBUTES attributes;
     WDF_IO_QUEUE_CONFIG queueConfig;
     WDFDEVICE device;
-    PHCOM_VCOM_PORT_CONTEXT context;
+    PJANUS_VCOM_PORT_CONTEXT context;
     NTSTATUS status;
 
     /* Do not use the printf family in a kernel binary: with a Desktop MSVC
        toolset it pulls the user-mode UCRT into the link. */
-    status = RtlStringCchCopyW(deviceNameBuffer, RTL_NUMBER_OF(deviceNameBuffer), L"\\Device\\HcomVcom_");
+    status = RtlStringCchCopyW(deviceNameBuffer, RTL_NUMBER_OF(deviceNameBuffer), L"\\Device\\JanusVcom_");
     if (NT_SUCCESS(status)) {
         status = RtlStringCchCatW(deviceNameBuffer, RTL_NUMBER_OF(deviceNameBuffer), PortName);
     }
@@ -305,7 +305,7 @@ HcomCreateEndpoint(
     RtlInitUnicodeString(&deviceName, deviceNameBuffer);
     RtlInitUnicodeString(&linkName, linkNameBuffer);
 
-    init = WdfControlDeviceInitAllocate(Driver, &HcomPortSddl);
+    init = WdfControlDeviceInitAllocate(Driver, &JanusPortSddl);
     if (init == NULL) return STATUS_INSUFFICIENT_RESOURCES;
     status = WdfDeviceInitAssignName(init, &deviceName);
     if (!NT_SUCCESS(status)) {
@@ -314,7 +314,7 @@ HcomCreateEndpoint(
     }
     WdfDeviceInitSetDeviceType(init, FILE_DEVICE_SERIAL_PORT);
     WdfDeviceInitSetIoType(init, WdfDeviceIoBuffered);
-    WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, HCOM_VCOM_PORT_CONTEXT);
+    WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&attributes, JANUS_VCOM_PORT_CONTEXT);
     status = WdfDeviceCreate(&init, &attributes, &device);
     if (!NT_SUCCESS(status)) return status;
     status = WdfDeviceCreateSymbolicLink(device, &linkName);
@@ -322,7 +322,7 @@ HcomCreateEndpoint(
         WdfObjectDelete(device);
         return status;
     }
-    context = HcomPortGetContext(device);
+    context = JanusPortGetContext(device);
     RtlZeroMemory(context, sizeof(*context));
     context->Pair = Pair;
     context->Index = Index;
@@ -334,9 +334,9 @@ HcomCreateEndpoint(
     context->Chars.XoffChar = 0x13;
 
     WDF_IO_QUEUE_CONFIG_INIT_DEFAULT_QUEUE(&queueConfig, WdfIoQueueDispatchParallel);
-    queueConfig.EvtIoRead = HcomEvtPortRead;
-    queueConfig.EvtIoWrite = HcomEvtPortWrite;
-    queueConfig.EvtIoDeviceControl = HcomEvtPortIo;
+    queueConfig.EvtIoRead = JanusEvtPortRead;
+    queueConfig.EvtIoWrite = JanusEvtPortWrite;
+    queueConfig.EvtIoDeviceControl = JanusEvtPortIo;
     status = WdfIoQueueCreate(device, &queueConfig, WDF_NO_OBJECT_ATTRIBUTES, WDF_NO_HANDLE);
     if (!NT_SUCCESS(status)) {
         WdfObjectDelete(device);
@@ -354,13 +354,13 @@ HcomCreateEndpoint(
 }
 
 VOID
-HcomEvtPortRead(
+JanusEvtPortRead(
     _In_ WDFQUEUE Queue,
     _In_ WDFREQUEST Request,
     _In_ size_t Length)
 {
-    PHCOM_VCOM_PORT_CONTEXT port = HcomPortGetContext(WdfIoQueueGetDevice(Queue));
-    PHCOM_VCOM_PAIR pair = port->Pair;
+    PJANUS_VCOM_PORT_CONTEXT port = JanusPortGetContext(WdfIoQueueGetDevice(Queue));
+    PJANUS_VCOM_PAIR pair = port->Pair;
     UCHAR* output;
     size_t outputLength;
     size_t copied = 0;
@@ -368,33 +368,33 @@ HcomEvtPortRead(
 
     status = WdfRequestRetrieveOutputBuffer(Request, 1, (PVOID*)&output, &outputLength);
     if (!NT_SUCCESS(status)) {
-        HcomComplete(Request, status, 0);
+        JanusComplete(Request, status, 0);
         return;
     }
     WdfWaitLockAcquire(pair->Lock, NULL);
     while (copied < Length && copied < outputLength && pair->Count[port->Index] != 0) {
         output[copied++] = pair->Ring[port->Index][pair->Head[port->Index]];
-        pair->Head[port->Index] = (pair->Head[port->Index] + 1) % HCOM_VCOM_RING_BYTES;
+        pair->Head[port->Index] = (pair->Head[port->Index] + 1) % JANUS_VCOM_RING_BYTES;
         --pair->Count[port->Index];
     }
     WdfWaitLockRelease(pair->Lock);
     if (copied != 0) {
-        HcomComplete(Request, STATUS_SUCCESS, copied);
+        JanusComplete(Request, STATUS_SUCCESS, copied);
         return;
     }
     status = WdfRequestForwardToIoQueue(Request, port->PendingReads);
-    if (!NT_SUCCESS(status)) HcomComplete(Request, status, 0);
+    if (!NT_SUCCESS(status)) JanusComplete(Request, status, 0);
 }
 
 VOID
-HcomEvtPortWrite(
+JanusEvtPortWrite(
     _In_ WDFQUEUE Queue,
     _In_ WDFREQUEST Request,
     _In_ size_t Length)
 {
-    PHCOM_VCOM_PORT_CONTEXT port = HcomPortGetContext(WdfIoQueueGetDevice(Queue));
-    PHCOM_VCOM_PAIR pair = port->Pair;
-    PHCOM_VCOM_PORT_CONTEXT peer;
+    PJANUS_VCOM_PORT_CONTEXT port = JanusPortGetContext(WdfIoQueueGetDevice(Queue));
+    PJANUS_VCOM_PAIR pair = port->Pair;
+    PJANUS_VCOM_PORT_CONTEXT peer;
     UCHAR* input;
     size_t inputLength;
     size_t accepted = 0;
@@ -404,11 +404,11 @@ HcomEvtPortWrite(
 
     status = WdfRequestRetrieveInputBuffer(Request, 1, (PVOID*)&input, &inputLength);
     if (!NT_SUCCESS(status)) {
-        HcomComplete(Request, status, 0);
+        JanusComplete(Request, status, 0);
         return;
     }
     WdfWaitLockAcquire(pair->Lock, NULL);
-    peer = HcomPortGetContext(pair->Endpoint[peerIndex]);
+    peer = JanusPortGetContext(pair->Endpoint[peerIndex]);
     (void)WdfIoQueueRetrieveNextRequest(peer->PendingReads, &pendingRead);
     if (pendingRead != NULL) {
         UCHAR* output;
@@ -417,39 +417,39 @@ HcomEvtPortWrite(
         if (NT_SUCCESS(status)) {
             accepted = min(inputLength, outputLength);
             RtlCopyMemory(output, input, accepted);
-            HcomComplete(pendingRead, STATUS_SUCCESS, accepted);
+            JanusComplete(pendingRead, STATUS_SUCCESS, accepted);
         } else {
-            HcomComplete(pendingRead, status, 0);
+            JanusComplete(pendingRead, status, 0);
         }
     }
-    while (accepted < inputLength && pair->Count[peerIndex] < HCOM_VCOM_RING_BYTES) {
+    while (accepted < inputLength && pair->Count[peerIndex] < JANUS_VCOM_RING_BYTES) {
         pair->Ring[peerIndex][pair->Tail[peerIndex]] = input[accepted++];
-        pair->Tail[peerIndex] = (pair->Tail[peerIndex] + 1) % HCOM_VCOM_RING_BYTES;
+        pair->Tail[peerIndex] = (pair->Tail[peerIndex] + 1) % JANUS_VCOM_RING_BYTES;
         ++pair->Count[peerIndex];
     }
     WdfWaitLockRelease(pair->Lock);
     if (accepted == 0 && Length != 0) {
-        HcomComplete(Request, STATUS_DEVICE_BUSY, 0);
+        JanusComplete(Request, STATUS_DEVICE_BUSY, 0);
         return;
     }
-    HcomComplete(Request, STATUS_SUCCESS, accepted);
+    JanusComplete(Request, STATUS_SUCCESS, accepted);
 }
 
 VOID
-HcomEvtPortIo(
+JanusEvtPortIo(
     _In_ WDFQUEUE Queue,
     _In_ WDFREQUEST Request,
     _In_ size_t OutputBufferLength,
     _In_ size_t InputBufferLength,
     _In_ ULONG IoControlCode)
 {
-    PHCOM_VCOM_PORT_CONTEXT port = HcomPortGetContext(WdfIoQueueGetDevice(Queue));
-    HcomComplete(Request, HcomSerialIo(port, Request, IoControlCode, OutputBufferLength, InputBufferLength), 0);
+    PJANUS_VCOM_PORT_CONTEXT port = JanusPortGetContext(WdfIoQueueGetDevice(Queue));
+    JanusComplete(Request, JanusSerialIo(port, Request, IoControlCode, OutputBufferLength, InputBufferLength), 0);
 }
 
 static NTSTATUS
-HcomSerialIo(
-    _In_ PHCOM_VCOM_PORT_CONTEXT Port,
+JanusSerialIo(
+    _In_ PJANUS_VCOM_PORT_CONTEXT Port,
     _In_ WDFREQUEST Request,
     _In_ ULONG IoControlCode,
     _In_ size_t OutputBufferLength,
@@ -514,13 +514,13 @@ HcomSerialIo(
 }
 
 static BOOLEAN
-HcomPortNameValid(_In_reads_(HCOM_VCOM_PORT_NAME_CHARS) PCWSTR PortName)
+JanusPortNameValid(_In_reads_(JANUS_VCOM_PORT_NAME_CHARS) PCWSTR PortName)
 {
     ULONG index;
     if (PortName[0] != L'C' || PortName[1] != L'O' || PortName[2] != L'M' || PortName[3] == L'\0') {
         return FALSE;
     }
-    for (index = 3; index < HCOM_VCOM_PORT_NAME_CHARS; ++index) {
+    for (index = 3; index < JANUS_VCOM_PORT_NAME_CHARS; ++index) {
         if (PortName[index] == L'\0') return index > 3;
         if (PortName[index] < L'0' || PortName[index] > L'9') return FALSE;
     }
@@ -528,7 +528,7 @@ HcomPortNameValid(_In_reads_(HCOM_VCOM_PORT_NAME_CHARS) PCWSTR PortName)
 }
 
 static VOID
-HcomComplete(_In_ WDFREQUEST Request, _In_ NTSTATUS Status, _In_ ULONG_PTR Information)
+JanusComplete(_In_ WDFREQUEST Request, _In_ NTSTATUS Status, _In_ ULONG_PTR Information)
 {
     WdfRequestCompleteWithInformation(Request, Status, Information);
 }

@@ -7,6 +7,22 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-17
+
+### Changed
+
+- Renamed the product, application and executable from HPCom to **JANUS**, and positioned JANUS within the **TITAN Universe**.
+- Renamed the Flutter package to `janus`, the Rust Core to `janus-core.exe` (Core `0.4.0`), and the virtual-COM driver to `janus-vcom` (`\\.\JanusVcomCtl`, `ROOT\JANUSVCOM`).
+- Session files now use the `.janustrace` extension; session and queue-preset format identifiers use the `janus-` prefix.
+- Added `JANUS · TITAN Universe` branding to the About dialog and README.
+- Build variables are now `JANUS_GIT_SHA`, `JANUS_BUILD_TIME`, `JANUS_CORE_PATH` and `JANUS_CARGO_EXECUTABLE`.
+
+### Breaking
+
+- `HPCom.exe` is now `JANUS.exe`; bundled `hcom-core.exe` is now `janus-core.exe`.
+- HPCom-era `.hcomtrace` sessions and `hcom-queue-preset` files are not read by this release. Frame-template JSON remains portable.
+- The renamed `janus-vcom` driver is a new package and must be rebuilt and signed by Microsoft before monitor mode can be distributed again.
+
 ## [1.0.1] - 2026-09-21
 
 ### Added
@@ -83,11 +99,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 - Windows UART/COM workbench, connection workflow, send queue, receive framing, and logging.
 
-[Unreleased]: https://github.com/Tylenoler/HPCom/compare/v1.0.1...HEAD
-[1.0.1]: https://github.com/Tylenoler/HPCom/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/Tylenoler/HPCom/compare/v0.4.0...v1.0.0
-[0.4.0]: https://github.com/Tylenoler/HPCom/compare/v0.3.2...v0.4.0
-[0.3.2]: https://github.com/Tylenoler/HPCom/compare/v0.3.1...v0.3.2
-[0.3.1]: https://github.com/Tylenoler/HPCom/compare/v0.3.0...v0.3.1
-[0.3.0]: https://github.com/Tylenoler/HPCom/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/Tylenoler/HPCom/releases/tag/v0.2.0
+[Unreleased]: https://github.com/Tylenoler/JANUS/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/Tylenoler/JANUS/compare/v1.0.1...v2.0.0
+[1.0.1]: https://github.com/Tylenoler/JANUS/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/Tylenoler/JANUS/compare/v0.4.0...v1.0.0
+[0.4.0]: https://github.com/Tylenoler/JANUS/compare/v0.3.2...v0.4.0
+[0.3.2]: https://github.com/Tylenoler/JANUS/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/Tylenoler/JANUS/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/Tylenoler/JANUS/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Tylenoler/JANUS/releases/tag/v0.2.0

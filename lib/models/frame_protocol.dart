@@ -421,7 +421,7 @@ class FrameTemplate {
   final String? correlationFieldId;
 
   factory FrameTemplate.standard() => const FrameTemplate(
-        id: 'hcom-default',
+        id: 'janus-default',
         name: '默认 UART 帧',
         fields: [
           ProtocolField(
@@ -606,7 +606,7 @@ class FrameTemplate {
   factory FrameTemplate.decode(String source) {
     final json = jsonDecode(source);
     if (json is! Map<String, dynamic> || json['fields'] is! List) {
-      throw const FormatException('不是有效的 HPCOM 帧模板 JSON。');
+      throw const FormatException('不是有效的 JANUS 帧模板 JSON。');
     }
     final fields = (json['fields'] as List)
         .whereType<Map>()

@@ -1,6 +1,6 @@
-// HCOM 性能测试台 · Core 驱动层
+// JANUS 性能测试台 · Core 驱动层
 //
-// 通过 NDJSON over stdio 驱动 hcom-core.exe（协议见 protocol/stdio-ndjson.md）。
+// 通过 NDJSON over stdio 驱动 janus-core.exe（协议见 protocol/stdio-ndjson.md）。
 // 本文件只依赖 dart:io / dart:convert，不引入任何第三方包，也不修改本体代码。
 
 import 'dart:async';
@@ -18,7 +18,7 @@ class CoreEvent {
   final int recvMicros;
 }
 
-/// 单个 hcom-core 进程的最小驱动
+/// 单个 janus-core 进程的最小驱动
 class CoreHarness {
   CoreHarness._(this._proc, this.exePath);
 

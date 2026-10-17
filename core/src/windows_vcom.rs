@@ -1,6 +1,6 @@
-//! HCOM-owned virtual-COM control client.
+//! JANUS-owned virtual-COM control client.
 //!
-//! This module deliberately talks to `hcom-vcom.sys` directly instead of
+//! This module deliberately talks to `janus-vcom.sys` directly instead of
 //! shelling out to a third-party virtual-port utility. The driver owns the
 //! kernel objects and the pair lifecycle; the Rust Core only requests a pair.
 
@@ -12,19 +12,19 @@ use windows_sys::Win32::{
     System::IO::DeviceIoControl,
 };
 
-const CONTROL_PATH: &str = r"\\.\HcomVcomCtl";
+const CONTROL_PATH: &str = r"\\.\JanusVcomCtl";
 const PORT_NAME_CHARS: usize = 16;
 const PROTOCOL_VERSION: u32 = 1;
 
-// Keep these values byte-for-byte aligned with drivers/hcom-vcom/include/
-// hcom_vcom_public.h. Function values remain in HCOM's private range.
-const FILE_DEVICE_HCOM_VCOM: u32 = 0x8337;
+// Keep these values byte-for-byte aligned with drivers/janus-vcom/include/
+// janus_vcom_public.h. Function values remain in JANUS's private range.
+const FILE_DEVICE_JANUS_VCOM: u32 = 0x8337;
 const METHOD_BUFFERED: u32 = 0;
 const FILE_ANY_ACCESS: u32 = 0;
 const fn ctl_code(function: u32) -> u32 {
-    (FILE_DEVICE_HCOM_VCOM << 16) | (FILE_ANY_ACCESS << 14) | (function << 2) | METHOD_BUFFERED
+    (FILE_DEVICE_JANUS_VCOM << 16) | (FILE_ANY_ACCESS << 14) | (function << 2) | METHOD_BUFFERED
 }
-const IOCTL_HCOM_VCOM_CREATE_PAIR: u32 = ctl_code(0x800);
+const IOCTL_JANUS_VCOM_CREATE_PAIR: u32 = ctl_code(0x800);
 
 #[repr(C)]
 struct CreatePairRequest {
@@ -44,7 +44,7 @@ pub(super) fn create_pair(external_port: &str, monitor_port: &str) -> Result<(),
     let ok = unsafe {
         DeviceIoControl(
             handle,
-            IOCTL_HCOM_VCOM_CREATE_PAIR,
+            IOCTL_JANUS_VCOM_CREATE_PAIR,
             &request as *const CreatePairRequest as _,
             size_of::<CreatePairRequest>() as u32,
             ptr::null_mut(),
@@ -58,7 +58,7 @@ pub(super) fn create_pair(external_port: &str, monitor_port: &str) -> Result<(),
     }
     if ok == 0 {
         return Err(format!(
-            "HPCOM 虚拟串口驱动无法创建端口对：{}",
+            "JANUS 虚拟串口驱动无法创建端口对：{}",
             io::Error::last_os_error()
         ));
     }
@@ -81,7 +81,7 @@ fn open_control_device() -> Result<HANDLE, String> {
     };
     if handle == INVALID_HANDLE_VALUE {
         return Err(format!(
-            "HPCOM 虚拟串口驱动未安装或未启动。请使用包含 HPCOM VCOM 驱动的正式安装包：{}",
+            "JANUS 虚拟串口驱动未安装或未启动。请使用包含 JANUS VCOM 驱动的正式安装包：{}",
             io::Error::last_os_error()
         ));
     }

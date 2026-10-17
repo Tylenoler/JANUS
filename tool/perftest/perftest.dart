@@ -1,13 +1,13 @@
-// HCOM 性能测试台 (HCOM Performance Test Bench)
+// JANUS 性能测试台 (JANUS Performance Test Bench)
 //
-// 用法（在 HCOM 项目根目录）：
+// 用法（在 JANUS 项目根目录）：
 //   dart run tool/perftest/perftest.dart
 //   dart run tool/perftest/perftest.dart --writer COM29 --reader COM30
 //   dart run tool/perftest/perftest.dart --quick
 //   dart run tool/perftest/perftest.dart --relay-external COM50 --relay-monitor COM51
 //
 // 设计说明：
-//  * 直接驱动真实 hcom-core.exe（NDJSON over stdio），不修改本体代码。
+//  * 直接驱动真实 janus-core.exe（NDJSON over stdio），不修改本体代码。
 //  * 回环测试需要一对连通的串口（如虚拟串口对 COM29 <-> COM30）。
 //  * 每项测试结束输出一张报告卡，最后输出总报告并落盘 Markdown。
 
@@ -211,12 +211,12 @@ double percentile(List<int> sorted, double p) {
   return sorted[idx].toDouble();
 }
 
-/// 定位 hcom-core.exe
+/// 定位 janus-core.exe
 String? locateCore() {
   const candidates = <String>[
-    'core/target/release/hcom-core.exe',
-    'core/target/debug/hcom-core.exe',
-    'build/windows/x64/runner/Release/hcom-core.exe',
+    'core/target/release/janus-core.exe',
+    'core/target/debug/janus-core.exe',
+    'build/windows/x64/runner/Release/janus-core.exe',
   ];
   for (final c in candidates) {
     final f = File(c);
@@ -482,7 +482,7 @@ Future<TestReport> testLatency(
 }
 
 /// T9 在同一真实串口回环和同一个回显 Core 上，先测直连，再测虚拟
-/// COM + HCOM 旁路中继。只有用户显式提供一对已创建的虚拟端口才会运行。
+/// COM + JANUS 旁路中继。只有用户显式提供一对已创建的虚拟端口才会运行。
 Future<TestReport> testRelayDelta(
     CoreHarness directOrMonitor, CoreHarness echo, Config cfg) async {
   final r = TestReport('T9', '直连 vs 旁路中继额外延迟', '旁路性能');
@@ -560,7 +560,7 @@ Future<TestReport> testRelayDelta(
     r.verdict = drops > 0
         ? '出现 UI 队列背压丢弃，结果不可作为零丢包结论'
         : '同链路差值已测得；P99 额外延迟 ${delta(p99Delta)}';
-    r.note('该结果包含设备/回显端与 USB 驱动行为；只用“中继 - 直连”作为 HCOM 额外开销参考。');
+    r.note('该结果包含设备/回显端与 USB 驱动行为；只用“中继 - 直连”作为 JANUS 额外开销参考。');
   } catch (error) {
     r.status = Status.skip;
     r.note('旁路对比无法完成: $error');
@@ -834,7 +834,7 @@ Future<int> main(List<String> args) async {
   stdout.writeln('');
   stdout.writeln(
       '══════════════════════════════════════════════════════════════════════');
-  stdout.writeln('  HCOM 性能测试台 (Performance Test Bench)');
+  stdout.writeln('  JANUS 性能测试台 (Performance Test Bench)');
   stdout.writeln(
       '══════════════════════════════════════════════════════════════════════');
   stdout.writeln('  模式      : ${cfg.quick ? '快速' : '完整'}');
@@ -845,7 +845,7 @@ Future<int> main(List<String> args) async {
   }
   if (corePath == null) {
     stdout.writeln('');
-    stdout.writeln('  ❌ 未找到 hcom-core.exe。请先构建:');
+    stdout.writeln('  ❌ 未找到 janus-core.exe。请先构建:');
     stdout
         .writeln('     cargo build --release --manifest-path core/Cargo.toml');
     return 2;
@@ -861,7 +861,7 @@ Future<int> main(List<String> args) async {
   try {
     main1 = await CoreHarness.start(corePath);
   } catch (e) {
-    stdout.writeln('❌ 无法启动 hcom-core.exe: $e');
+    stdout.writeln('❌ 无法启动 janus-core.exe: $e');
     return 3;
   }
 
@@ -984,7 +984,7 @@ Future<int> main(List<String> args) async {
 
 String buildMarkdown(List<TestReport> reports, Config cfg, String corePath) {
   final b = StringBuffer();
-  b.writeln('# HCOM 性能测试报告');
+  b.writeln('# JANUS 性能测试报告');
   b.writeln();
   b.writeln('- 时间: ${DateTime.now().toIso8601String()}');
   b.writeln('- 模式: ${cfg.quick ? '快速' : '完整'}');

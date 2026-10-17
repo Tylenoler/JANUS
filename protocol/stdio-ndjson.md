@@ -21,6 +21,10 @@ Phase 2 implements the Windows UART core behind the Phase 1 process boundary. Fl
 
 `start_periodic` starts a dedicated Rust scheduling thread, which sends all listed HEX commands immediately and then at the requested interval. `stop_periodic`, closing the port, or a write failure stops and joins that worker. Flutter must not enqueue every cycle as independent `write_data` commands.
 
+`set_control_lines` accepts optional Boolean `dtr` and `rts` values for an open
+physical COM session. `send_break` accepts an optional `durationMs` between 10
+and 10000 (default 250). Both commands are rejected for relay sessions.
+
 `create_virtual_pair` calls the HCOM-owned `hcom-vcom.sys` control device at `\\.\HcomVcomCtl` with a versioned private IOCTL. The formal HCOM installer deploys the Microsoft-signed HCOM VCOM package before Core is launched; the Core neither shells out to nor searches for com0com or another third-party tool. Creating a kernel virtual serial device may require the system's administrator approval during installation. A release without the signed HCOM driver payload is deliberately reported as incomplete rather than asking end users to search for third-party software.
 
 `open_monitor` opens the physical `port` and HCOM's endpoint of a virtual pair (`virtualPort`) with Windows overlapped I/O. Its physical-to-virtual and virtual-to-physical workers are independent, use fixed 64KiB buffers, and never call `FlushFileBuffers` in the forwarding path. Bytes from the external software are forwarded to the physical port and reported as TX; bytes received from the physical port are reported as RX and forwarded back to the virtual endpoint. Display batches remain best-effort and bounded, so UI/log pressure cannot delay the forwarding decision. `write_data` and `start_periodic` are rejected while this mode is active, ensuring HCOM remains a relay rather than a second writer.

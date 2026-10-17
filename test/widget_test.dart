@@ -13,6 +13,29 @@ import 'package:hcom/theme/hcom_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('template compose derives length, checksum, and byte order', () {
+    const template = FrameTemplate(
+      id: 'test',
+      name: 'Test',
+      fields: [
+        ProtocolField(
+            id: 'header',
+            kind: ProtocolFieldKind.header,
+            name: 'Header',
+            valueHex: 'AA'),
+        ProtocolField(
+            id: 'length', kind: ProtocolFieldKind.length, name: 'Length'),
+        ProtocolField(
+            id: 'payload', kind: ProtocolFieldKind.payload, name: 'Payload'),
+        ProtocolField(
+            id: 'checksum',
+            kind: ProtocolFieldKind.checksum,
+            name: 'Sum',
+            checksumAlgorithm: ChecksumAlgorithm.sum8),
+      ],
+    );
+    expect(template.compose({'payload': '10 20'}).hex, 'AA 02 10 20 DC');
+  });
   // The workbench persists settings through SharedPreferences. Without an
   // in-memory store the app's startup read is never answered, and any test
   // that awaits SharedPreferences.getInstance() inherits that pending future
@@ -547,6 +570,29 @@ void main() {
     expect(find.text('帧定义器'), findsOneWidget);
     expect(find.text('实时预览 HEX'), findsOneWidget);
     expect(find.text('添加字段'), findsOneWidget);
+  });
+
+  testWidgets('manages multiple protocol templates from the field panel',
+      (tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(const HcomApp());
+    await tester.tap(find.byTooltip('打开字段模块'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('模板库 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('协议模板库'), findsOneWidget);
+    await tester.tap(find.byTooltip('复制模板'));
+    await tester.pumpAndSettle();
+    expect(find.text('默认 UART 帧 副本'), findsWidgets);
+    await tester.tap(find.text('完成'));
+    await tester.pumpAndSettle();
+    expect(find.text('模板库 2'), findsOneWidget);
+    tester.view.physicalSize = const Size(1280, 820);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   test('defaults log timestamps to China Standard Time', () {

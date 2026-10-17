@@ -6,6 +6,16 @@ import 'receive_framer.dart';
 
 enum ProtocolFieldKind { header, length, payload, checksum, trailer, integer }
 
+enum FrameRole { other, request, response }
+
+extension FrameRoleDetails on FrameRole {
+  String get label => switch (this) {
+        FrameRole.other => '普通帧',
+        FrameRole.request => '请求帧',
+        FrameRole.response => '响应帧',
+      };
+}
+
 extension ProtocolFieldKindDetails on ProtocolFieldKind {
   String get label => switch (this) {
         ProtocolFieldKind.header => '帧头',
@@ -333,6 +343,7 @@ class ProtocolField {
     this.byteLength = 1,
     this.byteOrder = ByteOrder.bigEndian,
     this.valueHex = '',
+    this.matchValue = false,
     this.checksumAlgorithm = ChecksumAlgorithm.sum8,
   });
 
@@ -342,6 +353,7 @@ class ProtocolField {
   final int byteLength;
   final ByteOrder byteOrder;
   final String valueHex;
+  final bool matchValue;
   final ChecksumAlgorithm checksumAlgorithm;
 
   ProtocolField copyWith({
@@ -351,6 +363,7 @@ class ProtocolField {
     int? byteLength,
     ByteOrder? byteOrder,
     String? valueHex,
+    bool? matchValue,
     ChecksumAlgorithm? checksumAlgorithm,
   }) =>
       ProtocolField(
@@ -360,6 +373,7 @@ class ProtocolField {
         byteLength: byteLength ?? this.byteLength,
         byteOrder: byteOrder ?? this.byteOrder,
         valueHex: valueHex ?? this.valueHex,
+        matchValue: matchValue ?? this.matchValue,
         checksumAlgorithm: checksumAlgorithm ?? this.checksumAlgorithm,
       );
 
@@ -370,6 +384,7 @@ class ProtocolField {
         'byteLength': byteLength,
         'byteOrder': byteOrder.name,
         'valueHex': valueHex,
+        'matchValue': matchValue,
         'checksumAlgorithm': checksumAlgorithm.name,
       };
 
@@ -381,6 +396,7 @@ class ProtocolField {
         byteOrder: ByteOrder.values
             .byName(json['byteOrder'] as String? ?? ByteOrder.bigEndian.name),
         valueHex: json['valueHex'] as String? ?? '',
+        matchValue: json['matchValue'] as bool? ?? false,
         checksumAlgorithm: ChecksumAlgorithm.values.byName(
             json['checksumAlgorithm'] as String? ??
                 ChecksumAlgorithm.sum8.name),
@@ -392,11 +408,17 @@ class FrameTemplate {
     required this.id,
     required this.name,
     required this.fields,
+    this.role = FrameRole.other,
+    this.responseToTemplateId,
+    this.correlationFieldId,
   });
 
   final String id;
   final String name;
   final List<ProtocolField> fields;
+  final FrameRole role;
+  final String? responseToTemplateId;
+  final String? correlationFieldId;
 
   factory FrameTemplate.standard() => const FrameTemplate(
         id: 'hcom-default',
@@ -427,11 +449,82 @@ class FrameTemplate {
       );
 
   FrameTemplate copyWith(
-          {String? id, String? name, List<ProtocolField>? fields}) =>
+          {String? id,
+          String? name,
+          List<ProtocolField>? fields,
+          FrameRole? role,
+          String? responseToTemplateId,
+          String? correlationFieldId}) =>
       FrameTemplate(
           id: id ?? this.id,
           name: name ?? this.name,
-          fields: fields ?? this.fields);
+          fields: fields ?? this.fields,
+          role: role ?? this.role,
+          responseToTemplateId:
+              responseToTemplateId ?? this.responseToTemplateId,
+          correlationFieldId: correlationFieldId ?? this.correlationFieldId);
+
+  /// Builds a complete outbound frame from editable field values. Length and
+  /// checksum fields are deliberately derived here, rather than trusting UI
+  /// text, so every sender (manual, queue, and trigger) uses the same bytes.
+  FrameBuildResult compose(Map<String, String> values) {
+    final chunks = <String, List<int>>{};
+    final output = <int>[];
+    // A length field commonly appears before the payload, so resolve every
+    // variable payload first while retaining the template's output order.
+    for (final field
+        in fields.where((field) => field.kind == ProtocolFieldKind.payload)) {
+      final supplied = values[field.id]?.trim() ?? '';
+      final source = supplied.isEmpty ? field.valueHex : supplied;
+      final parsed = tryParseHexBytes(source);
+      if (!parsed.isValid) {
+        throw FormatException('${field.name}：${parsed.error ?? 'HEX 无效'}');
+      }
+      chunks[field.id] = parsed.bytes;
+    }
+    for (final field in fields) {
+      final supplied = values[field.id]?.trim() ?? '';
+      late final List<int> bytes;
+      if (field.kind == ProtocolFieldKind.checksum) {
+        final checksum = switch (field.checksumAlgorithm) {
+          ChecksumAlgorithm.sum8 =>
+            output.fold(0, (sum, byte) => (sum + byte) & 0xFF),
+          ChecksumAlgorithm.crc16Modbus => crc16Modbus(output),
+        };
+        bytes = _integerBytes(checksum, field.byteLength, field.byteOrder);
+      } else if (field.kind == ProtocolFieldKind.payload) {
+        bytes = chunks[field.id]!;
+      } else if (field.kind == ProtocolFieldKind.length) {
+        final payload = fields
+            .where((candidate) => candidate.kind == ProtocolFieldKind.payload)
+            .expand((candidate) => chunks[candidate.id] ?? const <int>[])
+            .length;
+        bytes = _integerBytes(payload, field.byteLength, field.byteOrder);
+      } else if (field.kind == ProtocolFieldKind.integer &&
+          RegExp(r'^\d+$').hasMatch(supplied)) {
+        bytes = _integerBytes(
+            int.parse(supplied), field.byteLength, field.byteOrder);
+      } else {
+        final source = supplied.isEmpty ? field.valueHex : supplied;
+        final parsed = tryParseHexBytes(source);
+        if (!parsed.isValid) {
+          throw FormatException('${field.name}：${parsed.error ?? 'HEX 无效'}');
+        }
+        bytes = parsed.bytes;
+        if (field.kind != ProtocolFieldKind.payload &&
+            bytes.length != field.byteLength) {
+          throw FormatException(
+              '${field.name} 需要 ${field.byteLength} B，当前 ${bytes.length} B。');
+        }
+      }
+      chunks[field.id] = bytes;
+      output.addAll(bytes);
+    }
+    return FrameBuildResult(
+      bytes: output,
+      fields: Map<String, List<int>>.unmodifiable(chunks),
+    );
+  }
 
   /// Derives deterministic stream framing from this editable template. The
   /// length field denotes the payload; every non-payload field is added back
@@ -502,6 +595,9 @@ class FrameTemplate {
         'version': 1,
         'id': id,
         'name': name,
+        'role': role.name,
+        'responseToTemplateId': responseToTemplateId,
+        'correlationFieldId': correlationFieldId,
         'fields': fields.map((field) => field.toJson()).toList()
       };
 
@@ -521,8 +617,36 @@ class FrameTemplate {
     return FrameTemplate(
         id: json['id'] as String? ?? 'imported',
         name: json['name'] as String? ?? '导入模板',
-        fields: fields);
+        fields: fields,
+        role: FrameRole.values.firstWhere((role) => role.name == json['role'],
+            orElse: () => FrameRole.other),
+        responseToTemplateId: json['responseToTemplateId'] as String?,
+        correlationFieldId: json['correlationFieldId'] as String?);
   }
+}
+
+class FrameBuildResult {
+  const FrameBuildResult({required this.bytes, required this.fields});
+  final List<int> bytes;
+  final Map<String, List<int>> fields;
+  String get hex => bytes
+      .map((byte) => byte.toRadixString(16).padLeft(2, '0').toUpperCase())
+      .join(' ');
+}
+
+List<int> _integerBytes(int value, int byteLength, ByteOrder byteOrder) {
+  if (byteLength < 1 || byteLength > 8) {
+    throw const FormatException('数值字段长度必须在 1–8 B 之间。');
+  }
+  final maximum = byteLength == 8 ? null : 1 << (byteLength * 8);
+  if (value < 0 || (maximum != null && value >= maximum)) {
+    throw FormatException('数值 $value 无法放入 $byteLength B。');
+  }
+  final bytes = List<int>.generate(
+    byteLength,
+    (index) => (value >> (8 * (byteLength - index - 1))) & 0xFF,
+  );
+  return byteOrder == ByteOrder.littleEndian ? bytes.reversed.toList() : bytes;
 }
 
 class ParsedField {
@@ -573,7 +697,8 @@ class ProtocolFrameParser {
       offset += length;
       final value = _readInteger(chunk, field.byteOrder);
       if ((field.kind == ProtocolFieldKind.header ||
-              field.kind == ProtocolFieldKind.trailer) &&
+              field.kind == ProtocolFieldKind.trailer ||
+              (field.kind == ProtocolFieldKind.integer && field.matchValue)) &&
           field.valueHex.isNotEmpty) {
         final expectedInput = tryParseHexBytes(field.valueHex);
         if (!expectedInput.isValid) {

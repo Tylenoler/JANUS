@@ -349,6 +349,51 @@ fn write_serial_data(opened: &PortSession, bytes: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
+fn set_control_lines(opened: &PortSession, payload: &Value) -> Result<(), String> {
+    let port = opened
+        .port
+        .as_ref()
+        .ok_or_else(|| "当前连接没有可控制的物理串口。".to_owned())?;
+    let mut port = port.lock().map_err(|_| "串口控制通道已失效。".to_owned())?;
+    if let Some(dtr) = payload.get("dtr").and_then(Value::as_bool) {
+        port.write_data_terminal_ready(dtr)
+            .map_err(|error| format!("设置 DTR 失败：{error}"))?;
+    }
+    if let Some(rts) = payload.get("rts").and_then(Value::as_bool) {
+        port.write_request_to_send(rts)
+            .map_err(|error| format!("设置 RTS 失败：{error}"))?;
+    }
+    emit(
+        "control_lines",
+        json!({
+            "dtr": payload.get("dtr").and_then(Value::as_bool),
+            "rts": payload.get("rts").and_then(Value::as_bool),
+        }),
+    );
+    Ok(())
+}
+
+fn send_break(opened: &PortSession, duration_ms: u64) -> Result<(), String> {
+    if !(10..=10_000).contains(&duration_ms) {
+        return Err("Break 时长必须在 10–10000 ms 之间。".to_owned());
+    }
+    let port = opened
+        .port
+        .as_ref()
+        .ok_or_else(|| "当前连接没有可控制的物理串口。".to_owned())?;
+    let port = Arc::clone(port);
+    thread::spawn(move || {
+        let Ok(port) = port.lock() else {
+            return;
+        };
+        if port.set_break().is_ok() {
+            thread::sleep(Duration::from_millis(duration_ms));
+            let _ = port.clear_break();
+        }
+    });
+    Ok(())
+}
+
 fn start_periodic_worker(
     session: u64,
     port: Arc<Mutex<Box<dyn SerialPort>>>,
@@ -760,6 +805,31 @@ fn main() {
                     })();
                     if let Err(error) = result {
                         emit_error("write_failed", error);
+                    }
+                }
+                "set_control_lines" => {
+                    let result = session
+                        .as_ref()
+                        .ok_or_else(|| "当前没有已连接的串口。".to_owned())
+                        .and_then(|opened| set_control_lines(opened, &command.payload));
+                    if let Err(error) = result {
+                        emit_error("control_lines_failed", error);
+                    }
+                }
+                "send_break" => {
+                    let result = (|| {
+                        let duration_ms = command
+                            .payload
+                            .get("durationMs")
+                            .and_then(Value::as_u64)
+                            .unwrap_or(250);
+                        let opened = session
+                            .as_ref()
+                            .ok_or_else(|| "当前没有已连接的串口。".to_owned())?;
+                        send_break(opened, duration_ms)
+                    })();
+                    if let Err(error) = result {
+                        emit_error("break_failed", error);
                     }
                 }
                 "start_periodic" => {

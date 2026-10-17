@@ -13,6 +13,7 @@ import '../core/backend_bridge.dart';
 import '../models/frame_protocol.dart';
 import '../models/log_copy.dart';
 import '../models/log_export.dart';
+import '../models/multi_frame_analysis.dart';
 import '../models/receive_framer.dart';
 import '../models/serial_entry.dart';
 import '../models/time_zone.dart';
@@ -21,6 +22,17 @@ import '../theme/hcom_theme.dart';
 enum SendMode { sequence, loop, trigger, periodic }
 
 enum SendInputFormat { hex, plainText }
+
+enum _LogDirectionFilter { all, rx, tx, bookmarked }
+
+extension _LogDirectionFilterDetails on _LogDirectionFilter {
+  String get label => switch (this) {
+        _LogDirectionFilter.all => '全部',
+        _LogDirectionFilter.rx => '仅 RX',
+        _LogDirectionFilter.tx => '仅 TX',
+        _LogDirectionFilter.bookmarked => '仅书签',
+      };
+}
 
 enum PacketSuffix { none, cr, crlf, lf }
 
@@ -45,6 +57,12 @@ const _minimumAppWidthForQueueEditor = 600.0;
 const _sendFormatSyncWindow = Duration(milliseconds: 1500);
 const _customBaudRatesPreferenceKey = 'customBaudRates';
 const _selectedBaudRatePreferenceKey = 'selectedBaudRate';
+const _queuePresetPreferenceKey = 'queuePresetsV1';
+const _triggerPreferenceKey = 'triggerRulesV1';
+const _autoReconnectPreferenceKey = 'autoReconnect';
+const _serialProfilePreferenceKey = 'serialProfilesV1';
+const _frameTemplatesPreferenceKey = 'frameTemplatesV1';
+const _selectedFrameTemplatePreferenceKey = 'selectedFrameTemplateV1';
 const _standardBaudRates = <String>[
   '1200',
   '2400',
@@ -76,6 +94,110 @@ class _QueuedCommand {
   PacketSuffix packetSuffix;
 
   String get wireHex => _appendPacketSuffix(hex, packetSuffix);
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'hex': hex,
+        'enabled': enabled,
+        'delayMilliseconds': delayMilliseconds,
+        'packetSuffix': packetSuffix.name,
+      };
+
+  factory _QueuedCommand.fromJson(Map<String, dynamic> json) {
+    final command = _QueuedCommand(
+      name: json['name']?.toString() ?? '命令',
+      hex: json['hex']?.toString() ?? '',
+      packetSuffix: PacketSuffix.values.firstWhere(
+        (value) => value.name == json['packetSuffix'],
+        orElse: () => PacketSuffix.none,
+      ),
+    );
+    command.enabled = json['enabled'] is bool ? json['enabled'] as bool : true;
+    command.delayMilliseconds =
+        ((json['delayMilliseconds'] as num?)?.toInt() ?? 0).clamp(0, 3600000);
+    return command;
+  }
+}
+
+class _TriggerRule {
+  _TriggerRule({
+    required this.name,
+    required this.hexPattern,
+    required this.actionHex,
+    this.fieldId = '',
+    this.fieldValue = '',
+    this.rxOnly = true,
+    this.enabled = true,
+    this.bookmark = false,
+  });
+
+  String name;
+  String hexPattern;
+  String actionHex;
+  String fieldId;
+  String fieldValue;
+  bool rxOnly;
+  bool enabled;
+  bool bookmark;
+  DateTime? lastFired;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'hexPattern': hexPattern,
+        'actionHex': actionHex,
+        'fieldId': fieldId,
+        'fieldValue': fieldValue,
+        'rxOnly': rxOnly,
+        'enabled': enabled,
+        'bookmark': bookmark,
+      };
+
+  factory _TriggerRule.fromJson(Map<String, dynamic> json) => _TriggerRule(
+        name: json['name']?.toString() ?? '触发规则',
+        hexPattern: json['hexPattern']?.toString() ?? '',
+        actionHex: json['actionHex']?.toString() ?? '',
+        fieldId: json['fieldId']?.toString() ?? '',
+        fieldValue: json['fieldValue']?.toString() ?? '',
+        rxOnly: json['rxOnly'] is bool ? json['rxOnly'] as bool : true,
+        enabled: json['enabled'] is bool ? json['enabled'] as bool : true,
+        bookmark: json['bookmark'] is bool ? json['bookmark'] as bool : false,
+      );
+}
+
+class _SerialProfile {
+  const _SerialProfile({
+    required this.name,
+    required this.baudRate,
+    required this.dataBits,
+    required this.stopBits,
+    required this.parity,
+    required this.flowControl,
+  });
+
+  final String name;
+  final String baudRate;
+  final String dataBits;
+  final String stopBits;
+  final String parity;
+  final String flowControl;
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'baudRate': baudRate,
+        'dataBits': dataBits,
+        'stopBits': stopBits,
+        'parity': parity,
+        'flowControl': flowControl,
+      };
+
+  factory _SerialProfile.fromJson(Map<String, dynamic> json) => _SerialProfile(
+        name: json['name']?.toString() ?? '串口配置',
+        baudRate: json['baudRate']?.toString() ?? '115200',
+        dataBits: json['dataBits']?.toString() ?? '8',
+        stopBits: json['stopBits']?.toString() ?? '1',
+        parity: json['parity']?.toString() ?? '无 None',
+        flowControl: json['flowControl']?.toString() ?? '无',
+      );
 }
 
 String _appendPacketSuffix(String bytes, PacketSuffix suffix) {
@@ -91,6 +213,7 @@ class _StartupSettings {
     required this.rightDockExpanded,
     required this.queueExpanded,
     required this.startupRealtimeLoggingEnabled,
+    required this.autoReconnect,
     required this.isDark,
   });
 
@@ -99,6 +222,7 @@ class _StartupSettings {
   final bool rightDockExpanded;
   final bool queueExpanded;
   final bool startupRealtimeLoggingEnabled;
+  final bool autoReconnect;
   final bool isDark;
 }
 
@@ -132,7 +256,9 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   // The parsed view is deliberately bounded; this raw capture is the source
   // of truth for the session, manual export, and byte-for-byte comparison.
   final List<SerialEntry> _rawEntries = [];
+  final Set<SerialEntry> _bookmarkedEntries = {};
   final Map<SerialEntry, ParsedFrame> _parsedEntries = {};
+  final Map<SerialEntry, FrameTemplate> _entryTemplates = {};
   final List<SerialEntry> _pendingEntries = [];
   final List<SerialEntry> _pendingRawEntries = [];
   int _pendingReceivedBytes = 0;
@@ -152,10 +278,30 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   ReceiveFramingConfig _receiveFramingConfig = const ReceiveFramingConfig();
   final ReceiveFramer _receiveFramer = ReceiveFramer();
   FrameTemplate _frameTemplate = FrameTemplate.standard();
+  final List<FrameTemplate> _frameTemplates = [FrameTemplate.standard()];
+  MultiTemplateFramer? _multiFramer;
+  final RequestResponseTracker _transactionTracker = RequestResponseTracker();
+  Timer? _transactionTimer;
+  List<SerialEntry>? _playbackEntries;
+  Set<int> _playbackBookmarks = {};
+  int _playbackCursor = 0;
+  bool _playbackPlaying = false;
+  double _playbackSpeed = 1;
+  double? _playbackSeekPreview;
+  Timer? _playbackTimer;
   PacketSuffix _sendPacketSuffix = PacketSuffix.none;
   DateTime? _lastSendFormatToggleAt;
   int _sendFormatToggleCount = 0;
   bool _formatsLinked = false;
+  String _logSearch = '';
+  _LogDirectionFilter _logDirectionFilter = _LogDirectionFilter.all;
+  final List<_TriggerRule> _triggers = [];
+  Timer? _reconnectTimer;
+  bool _autoReconnect = false;
+  bool _manualDisconnect = false;
+  bool _dtrEnabled = false;
+  bool _rtsEnabled = false;
+  final List<_SerialProfile> _serialProfiles = [];
   final List<_QueuedCommand> _queue = [
     _QueuedCommand(
       name: '心跳',
@@ -211,6 +357,18 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     _sendPanelFadeController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 200), value: 1);
     _eventSubscription = _bridge.events.listen(_consumeCoreEvent);
+    _transactionTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (!mounted ||
+          _playbackEntries != null ||
+          _transactionTracker.transactions.isEmpty) {
+        return;
+      }
+      final pending = _transactionTracker.transactions
+          .where((item) => item.status == TransactionStatus.pending)
+          .length;
+      if (pending == 0) return;
+      setState(() => _transactionTracker.expire(DateTime.now().toUtc()));
+    });
     unawaited(_bridge.start());
     unawaited(_loadStartupPreferences());
   }
@@ -222,6 +380,9 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     _notificationTimer?.cancel();
     _queueDeleteTimer?.cancel();
     _entryFlushTimer?.cancel();
+    _reconnectTimer?.cancel();
+    _transactionTimer?.cancel();
+    _playbackTimer?.cancel();
     _eventSubscription.cancel();
     _connectionPulseController.dispose();
     _sendPanelFadeController.dispose();
@@ -254,6 +415,326 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     _showMessage('已将完整帧填入发送输入框');
   }
 
+  Future<void> _showFieldComposer() async {
+    final editable = _frameTemplate.fields
+        .where((field) =>
+            field.kind != ProtocolFieldKind.length &&
+            field.kind != ProtocolFieldKind.checksum)
+        .toList();
+    final controllers = {
+      for (final field in editable)
+        field.id: TextEditingController(text: field.valueHex),
+    };
+    final result = await _showContainerTransformDialog<String>(
+      context: context,
+      alignment: Alignment.center,
+      builder: (context) => StatefulBuilder(builder: (context, setDialogState) {
+        FrameBuildResult? preview;
+        String? error;
+        try {
+          preview = _frameTemplate.compose({
+            for (final entry in controllers.entries)
+              entry.key: entry.value.text,
+          });
+        } on FormatException catch (caught) {
+          error = caught.message;
+        }
+        return AlertDialog(
+          title: Row(children: [
+            const Icon(Icons.view_quilt_rounded),
+            const SizedBox(width: 10),
+            Expanded(child: Text('字段组包 · ${_frameTemplate.name}')),
+          ]),
+          content: SizedBox(
+            width: 580,
+            height: 480,
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('数值字段可输入十进制；其他字段输入 HEX。长度与校验会自动生成。',
+                      style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: editable.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final field = editable[index];
+                        final isFixed =
+                            field.kind == ProtocolFieldKind.header ||
+                                field.kind == ProtocolFieldKind.trailer;
+                        return TextField(
+                          controller: controllers[field.id],
+                          onChanged: (_) => setDialogState(() {}),
+                          decoration: InputDecoration(
+                            labelText: '${field.name} · ${field.kind.label}',
+                            helperText: isFixed
+                                ? '${field.byteLength} B 固定字段'
+                                : field.kind == ProtocolFieldKind.integer
+                                    ? '${field.byteLength} B · ${field.byteOrder.label}'
+                                    : '可变长度 HEX 数据域',
+                          ),
+                          style: const TextStyle(
+                              fontFamily: HcomTheme.latinFontFamily),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: error == null
+                          ? Theme.of(context).colorScheme.secondaryContainer
+                          : Theme.of(context).colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: SelectableText(
+                      error ?? '预览 ${preview!.bytes.length} B · ${preview.hex}',
+                      style: TextStyle(
+                        fontFamily: HcomTheme.latinFontFamily,
+                        color: error == null
+                            ? Theme.of(context).colorScheme.onSecondaryContainer
+                            : Theme.of(context).colorScheme.onErrorContainer,
+                      ),
+                    ),
+                  ),
+                ]),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消')),
+            FilledButton(
+              onPressed: preview == null
+                  ? null
+                  : () => Navigator.pop(context, preview!.hex),
+              child: const Text('填入发送框'),
+            ),
+          ],
+        );
+      }),
+    );
+    for (final controller in controllers.values) {
+      controller.dispose();
+    }
+    if (result == null || !mounted) return;
+    setState(() {
+      _commandController.text = result;
+      _sendInputFormat = SendInputFormat.hex;
+      _sendPacketSuffix = PacketSuffix.none;
+    });
+    _showMessage('字段已组包；长度和校验已自动计算');
+  }
+
+  Future<_TriggerRule?> _editTriggerRule(_TriggerRule initial) async {
+    final name = TextEditingController(text: initial.name);
+    final pattern = TextEditingController(text: initial.hexPattern);
+    final action = TextEditingController(text: initial.actionHex);
+    final fieldValue = TextEditingController(text: initial.fieldValue);
+    var fieldId = initial.fieldId;
+    var rxOnly = initial.rxOnly;
+    var bookmark = initial.bookmark;
+    final result = await _showContainerTransformDialog<_TriggerRule>(
+      context: context,
+      alignment: Alignment.center,
+      builder: (context) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+                title: const Text('条件触发规则'),
+                content: SizedBox(
+                  width: 460,
+                  height: 500,
+                  child: SingleChildScrollView(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    TextField(
+                        controller: name,
+                        decoration: const InputDecoration(labelText: '规则名称')),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: pattern,
+                      decoration: const InputDecoration(
+                        labelText: '匹配 HEX',
+                        hintText: '例如 AA 55 81',
+                        helperText: '与字段匹配二选一；匹配收到字节流中的连续 HEX。',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      initialValue: _frameTemplate.fields
+                              .any((field) => field.id == fieldId)
+                          ? fieldId
+                          : '',
+                      items: [
+                        const DropdownMenuItem(
+                            value: '', child: Text('不按字段匹配')),
+                        for (final field in _frameTemplate.fields)
+                          DropdownMenuItem(
+                              value: field.id,
+                              child:
+                                  Text('${field.name} · ${field.kind.label}')),
+                      ],
+                      onChanged: (value) =>
+                          setDialogState(() => fieldId = value ?? ''),
+                      decoration: const InputDecoration(labelText: '匹配字段（可选）'),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: fieldValue,
+                      decoration: const InputDecoration(
+                        labelText: '字段值（可选）',
+                        hintText: 'HEX，例如 01；数值字段也可输入十进制',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: action,
+                      decoration: const InputDecoration(
+                        labelText: '触发后发送（可留空）',
+                        hintText: '例如 AA 55 01 00',
+                      ),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('仅匹配 RX'),
+                      value: rxOnly,
+                      onChanged: (value) =>
+                          setDialogState(() => rxOnly = value),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('命中时加书签'),
+                      value: bookmark,
+                      onChanged: (value) =>
+                          setDialogState(() => bookmark = value),
+                    ),
+                  ])),
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('取消')),
+                  FilledButton(
+                    onPressed: () {
+                      final hasHex = pattern.text.trim().isNotEmpty;
+                      final hasField = fieldId.isNotEmpty &&
+                          fieldValue.text.trim().isNotEmpty;
+                      if (name.text.trim().isEmpty || (!hasHex && !hasField)) {
+                        return;
+                      }
+                      final validPattern =
+                          hasHex ? tryParseHexBytes(pattern.text) : null;
+                      final validAction = action.text.trim().isEmpty
+                          ? null
+                          : tryParseHexBytes(action.text);
+                      if ((validPattern != null && !validPattern.isValid) ||
+                          (validAction != null && !validAction.isValid)) {
+                        return;
+                      }
+                      Navigator.pop(
+                          context,
+                          _TriggerRule(
+                            name: name.text.trim(),
+                            hexPattern: pattern.text.trim().toUpperCase(),
+                            actionHex: action.text.trim().toUpperCase(),
+                            fieldId: fieldId,
+                            fieldValue: fieldValue.text.trim().toUpperCase(),
+                            rxOnly: rxOnly,
+                            enabled: initial.enabled,
+                            bookmark: bookmark,
+                          ));
+                    },
+                    child: const Text('保存'),
+                  ),
+                ],
+              )),
+    );
+    name.dispose();
+    pattern.dispose();
+    action.dispose();
+    fieldValue.dispose();
+    return result;
+  }
+
+  Future<void> _showTriggerRules() async {
+    await _showContainerTransformDialog<void>(
+      context: context,
+      alignment: Alignment.centerRight,
+      builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+                title: const Row(children: [
+                  Icon(Icons.bolt_rounded),
+                  SizedBox(width: 10),
+                  Text('条件触发')
+                ]),
+                content: SizedBox(
+                  width: 560,
+                  height: 420,
+                  child: Column(children: [
+                    Text('命中后可发送一条 HEX 命令或加书签；同一规则 250 ms 内只执行一次。',
+                        style: Theme.of(context).textTheme.bodySmall),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: _triggers.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final rule = _triggers[index];
+                          return Card(
+                              child: ListTile(
+                            leading: Switch(
+                              value: rule.enabled,
+                              onChanged: (value) =>
+                                  setDialogState(() => rule.enabled = value),
+                            ),
+                            title: Text(rule.name),
+                            subtitle: Text(
+                                '${rule.rxOnly ? 'RX · ' : 'RX/TX · '}${rule.hexPattern.isEmpty ? '${rule.fieldId}=${rule.fieldValue}' : rule.hexPattern} → ${rule.actionHex.isEmpty ? '仅标记' : rule.actionHex}${rule.bookmark ? ' · 书签' : ''}'),
+                            trailing: IconButton(
+                              tooltip: '编辑规则',
+                              icon: const Icon(Icons.edit_outlined),
+                              onPressed: () async {
+                                final edited = await _editTriggerRule(rule);
+                                if (edited != null) {
+                                  setDialogState(
+                                      () => _triggers[index] = edited);
+                                }
+                              },
+                            ),
+                          ));
+                        },
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.tonalIcon(
+                        onPressed: () async {
+                          final created = await _editTriggerRule(_TriggerRule(
+                              name: '新规则', hexPattern: '', actionHex: ''));
+                          if (created != null) {
+                            setDialogState(() => _triggers.add(created));
+                          }
+                        },
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('添加规则'),
+                      ),
+                    ),
+                  ]),
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('关闭')),
+                  FilledButton(
+                      onPressed: () {
+                        unawaited(_persistQueueAndTriggers());
+                        Navigator.pop(context);
+                      },
+                      child: const Text('保存规则')),
+                ],
+              )),
+    );
+  }
+
   void _consumeCoreEvent(Map<String, dynamic> event) {
     final payload = event['payload'];
     if (payload is! Map) return;
@@ -284,8 +765,15 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         });
         if (!_connected && wasConnected) _stopPeriodicSend();
         if (_connected && !wasConnected) {
+          _reconnectTimer?.cancel();
           _connectionPulseController.forward(from: 0);
           _showMessage('已连接 ${payload['port'] ?? _selectedPort?.port ?? '串口'}');
+        }
+        if (!_connected &&
+            state == 'disconnected' &&
+            !_manualDisconnect &&
+            _autoReconnect) {
+          _scheduleReconnect();
         }
       case 'periodic_state':
         final active = payload['active'];
@@ -307,17 +795,27 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
             hex: bytes,
             label: '原始字节流');
         try {
-          final fragments = direction == SerialDirection.tx
-              ? [FramedReceiveData(parseHexBytes(bytes), receivedAt)]
-              : _receiveFramer.addHex(bytes, receivedAt);
-          final entries = fragments
+          final recognized = direction == SerialDirection.tx
+              ? <RecognizedFrame>[
+                  RecognizedFrame(
+                      data: FramedReceiveData(parseHexBytes(bytes), receivedAt))
+                ]
+              : _multiFramer != null && _usesTemplateLengthFraming
+                  ? _multiFramer!.addHex(bytes, receivedAt)
+                  : <RecognizedFrame>[
+                      for (final frame
+                          in _receiveFramer.addHex(bytes, receivedAt))
+                        RecognizedFrame(data: frame)
+                    ];
+          final entries = recognized
               .map((frame) => SerialEntry(
                     direction: direction,
-                    timestamp: frame.timestamp,
-                    hex: frame.hex,
-                    label: frame.kind == FramedReceiveKind.frame
-                        ? 'Core'
-                        : '${frame.kind.label}${frame.note == null ? '' : ' · ${frame.note}'}',
+                    timestamp: frame.data.timestamp,
+                    hex: frame.data.hex,
+                    templateId: frame.template?.id,
+                    label: frame.data.kind == FramedReceiveKind.frame
+                        ? (frame.template?.name ?? 'Core')
+                        : '${frame.data.kind.label}${frame.data.note == null ? '' : ' · ${frame.data.note}'}',
                   ))
               .toList();
           final cumulativeDrop = (payload['droppedBytes'] as num?)?.toInt();
@@ -327,16 +825,18 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
               receivedBytes:
                   direction == SerialDirection.rx ? raw.byteCount : 0,
               framedBytes: direction == SerialDirection.rx
-                  ? fragments
+                  ? recognized
                       .where((fragment) =>
-                          fragment.kind == FramedReceiveKind.frame)
-                      .fold(0, (sum, fragment) => sum + fragment.bytes.length)
+                          fragment.data.kind == FramedReceiveKind.frame)
+                      .fold(0,
+                          (sum, fragment) => sum + fragment.data.bytes.length)
                   : 0,
               orphanBytes: direction == SerialDirection.rx
-                  ? fragments
+                  ? recognized
                       .where((fragment) =>
-                          fragment.kind != FramedReceiveKind.frame)
-                      .fold(0, (sum, fragment) => sum + fragment.bytes.length)
+                          fragment.data.kind != FramedReceiveKind.frame)
+                      .fold(0,
+                          (sum, fragment) => sum + fragment.data.bytes.length)
                   : 0,
               cumulativeDrop: cumulativeDrop,
               burstDrop: burstDrop);
@@ -345,7 +845,14 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         }
       case 'error':
         final message = payload['message'];
-        if (message is String && message.isNotEmpty) _showMessage(message);
+        if (message is String && message.isNotEmpty) {
+          if (_queueSending) {
+            _stopQueueSend();
+            _showMessage('队列因串口错误已停止：$message');
+          } else {
+            _showMessage(message);
+          }
+        }
     }
   }
 
@@ -399,6 +906,9 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       _pendingFramedBytes = 0;
       _pendingOrphanBytes = 0;
     });
+    for (final entry in rawIncoming) {
+      _applyTriggers(entry);
+    }
     if (followLatest) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_streamController.hasClients) {
@@ -409,10 +919,14 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   }
 
   void _appendEntries(Iterable<SerialEntry> entries) {
-    final parser = ProtocolFrameParser(_frameTemplate);
     for (final entry in entries) {
       _entries.add(entry);
-      _parsedEntries[entry] = parser.parseHex(entry.hex);
+      final match = _matchEntry(entry);
+      _parsedEntries[entry] = match.$2;
+      if (match.$2.valid) {
+        _entryTemplates[entry] = match.$1;
+        _transactionTracker.observe(entry, match.$1, match.$2);
+      }
     }
     final overflow = _entries.length - 5000;
     if (overflow > 0) {
@@ -420,36 +934,102 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       _entries.removeRange(0, overflow);
       for (final entry in removed) {
         _parsedEntries.remove(entry);
+        _entryTemplates.remove(entry);
       }
       _trimmedEntryCount += overflow;
       _showMessage('解析视图已移除 $overflow 条较早记录；原始字节流和导出仍完整保留。');
     }
   }
 
-  void _setFrameTemplate(FrameTemplate template) {
-    final unfinished = _receiveFramer.flush().map((frame) => SerialEntry(
-          direction: SerialDirection.rx,
-          timestamp: frame.timestamp,
-          hex: frame.hex,
-          label: '${frame.kind.label} · ${frame.note ?? '模板切换前释放'}',
-        ));
-    _frameTemplate = template;
-    if (_receiveFramingConfig.mode == ReceiveFramingMode.templateLength ||
-        _receiveFramingConfig.mode == ReceiveFramingMode.automatic ||
-        _receiveFramingConfig.mode == ReceiveFramingMode.idle) {
-      _receiveFramingConfig = template.receiveFramingConfig(
-          mode: _receiveFramingConfig.mode == ReceiveFramingMode.templateLength
-              ? ReceiveFramingMode.templateLength
-              : _receiveFramingConfig.mode);
-      _receiveFramer.configure(_receiveFramingConfig);
+  (FrameTemplate, ParsedFrame) _matchEntry(SerialEntry entry) {
+    final preferred =
+        _frameTemplates.where((template) => template.id == entry.templateId);
+    final candidates = preferred.isNotEmpty
+        ? preferred
+        : [
+            _frameTemplate,
+            ..._frameTemplates
+                .where((template) => template.id != _frameTemplate.id),
+          ];
+    ParsedFrame? fallback;
+    for (final template in candidates) {
+      final parsed = ProtocolFrameParser(template).parseHex(entry.hex);
+      if (parsed.valid) return (template, parsed);
+      fallback ??= parsed;
     }
+    return (
+      _frameTemplate,
+      fallback ?? const ParsedFrame(fields: [], valid: false, error: '没有可用帧模板')
+    );
+  }
+
+  void _rebuildFrameAnalysis() {
+    _entryTemplates.clear();
+    _parsedEntries.clear();
+    _transactionTracker.reset();
+    for (final entry in _entries) {
+      final match = _matchEntry(entry);
+      _parsedEntries[entry] = match.$2;
+      if (match.$2.valid) {
+        _entryTemplates[entry] = match.$1;
+        _transactionTracker.observe(entry, match.$1, match.$2);
+      }
+    }
+  }
+
+  List<SerialEntry> _flushFrameBuffers() {
+    final multi = _multiFramer;
+    if (multi != null && _usesTemplateLengthFraming) {
+      return [
+        for (final frame in multi.flush())
+          SerialEntry(
+              direction: SerialDirection.rx,
+              timestamp: frame.data.timestamp,
+              hex: frame.data.hex,
+              label: '${frame.data.kind.label} · ${frame.data.note ?? '模板切换'}')
+      ];
+    }
+    return [
+      for (final frame in _receiveFramer.flush())
+        SerialEntry(
+            direction: SerialDirection.rx,
+            timestamp: frame.timestamp,
+            hex: frame.hex,
+            label: '${frame.kind.label} · ${frame.note ?? '模板切换'}')
+    ];
+  }
+
+  bool get _usesTemplateLengthFraming =>
+      _receiveFramingConfig.mode == ReceiveFramingMode.templateLength ||
+      _receiveFramingConfig.mode == ReceiveFramingMode.automatic ||
+      _receiveFramingConfig.mode == ReceiveFramingMode.idle;
+
+  void _configureFrameRecognition() {
+    _receiveFramingConfig =
+        _frameTemplate.receiveFramingConfig(mode: _receiveFramingConfig.mode);
+    _receiveFramer.configure(_receiveFramingConfig);
+    _multiFramer = _frameTemplates.length > 1
+        ? MultiTemplateFramer(_frameTemplates)
+        : null;
+  }
+
+  void _setFrameTemplate(FrameTemplate template) {
+    final index = _frameTemplates.indexWhere((item) => item.id == template.id);
+    if (index >= 0 && identical(_frameTemplates[index], template)) {
+      _frameTemplate = template;
+      _rebuildFrameAnalysis();
+      return;
+    }
+    final unfinished = _flushFrameBuffers();
+    if (index < 0) {
+      _frameTemplates.add(template);
+    } else {
+      _frameTemplates[index] = template;
+    }
+    _frameTemplate = template;
+    _configureFrameRecognition();
     _appendEntries(unfinished);
-    final parser = ProtocolFrameParser(template);
-    _parsedEntries
-      ..clear()
-      ..addEntries({
-        for (final entry in _entries) entry: parser.parseHex(entry.hex),
-      }.entries);
+    _rebuildFrameAnalysis();
   }
 
   void _showMessage(String message) {
@@ -464,6 +1044,242 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     });
   }
 
+  void _scheduleReconnect() {
+    if (_selectedPort == null || _reconnectTimer?.isActive == true) return;
+    _showMessage('串口已断开，将在 2 秒后按当前配置重连。');
+    _reconnectTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted && !_connected && !_connecting && !_manualDisconnect) {
+        _toggleConnection();
+      }
+    });
+  }
+
+  void _applyTriggers(SerialEntry entry) {
+    if (!_connected) return;
+    final compact = entry.hex.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+    for (final rule in _triggers) {
+      if (!rule.enabled ||
+          (rule.rxOnly && entry.direction != SerialDirection.rx)) {
+        continue;
+      }
+      final pattern =
+          rule.hexPattern.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+      final hexMatches = pattern.isNotEmpty && compact.contains(pattern);
+      final requestedFieldValue =
+          rule.fieldValue.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+      var fieldMatches = false;
+      if (rule.fieldId.isNotEmpty && requestedFieldValue.isNotEmpty) {
+        final parsed = ProtocolFrameParser(_frameTemplate).parseHex(entry.hex);
+        for (final field in parsed.fields) {
+          if (field.field.id != rule.fieldId) continue;
+          final hexValue =
+              field.hex.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+          fieldMatches = hexValue == requestedFieldValue ||
+              field.value?.toString() == rule.fieldValue.trim();
+          break;
+        }
+      }
+      if (!hexMatches && !fieldMatches) continue;
+      final now = DateTime.now();
+      if (rule.lastFired != null &&
+          now.difference(rule.lastFired!) < const Duration(milliseconds: 250)) {
+        continue;
+      }
+      rule.lastFired = now;
+      if (rule.bookmark) _bookmarkedEntries.add(entry);
+      final action = rule.actionHex.trim();
+      if (action.isNotEmpty) {
+        final parsed = tryParseHexBytes(action);
+        if (parsed.isValid) _sendBytes(action.toUpperCase());
+      }
+      _showMessage('触发规则“${rule.name}”已执行');
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _persistQueueAndTriggers() async {
+    final preferences = await SharedPreferences.getInstance();
+    await Future.wait([
+      preferences.setString(
+        _queuePresetPreferenceKey,
+        jsonEncode({
+          'name': _queueNameController.text,
+          'commands': _queue.map((item) => item.toJson()).toList(),
+        }),
+      ),
+      preferences.setString(_triggerPreferenceKey,
+          jsonEncode(_triggers.map((item) => item.toJson()).toList())),
+    ]);
+  }
+
+  Future<void> _persistSerialProfiles() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+        _serialProfilePreferenceKey,
+        jsonEncode(
+            _serialProfiles.map((profile) => profile.toJson()).toList()));
+  }
+
+  void _applySerialProfile(_SerialProfile profile) {
+    setState(() {
+      _baudRate = profile.baudRate;
+      _dataBits = profile.dataBits;
+      _stopBits = profile.stopBits;
+      _parity = profile.parity;
+      _flowControl = profile.flowControl;
+      if (!_standardBaudRates.contains(profile.baudRate) &&
+          !_customBaudRates.contains(profile.baudRate)) {
+        _customBaudRates.add(profile.baudRate);
+      }
+    });
+  }
+
+  Future<void> _showSerialProfiles() async {
+    final name = TextEditingController();
+    await _showContainerTransformDialog<void>(
+      context: context,
+      alignment: Alignment.center,
+      builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+                title: const Text('串口配置预设'),
+                content: SizedBox(
+                  width: 480,
+                  height: 380,
+                  child: Column(children: [
+                    TextField(
+                      controller: name,
+                      decoration: const InputDecoration(
+                          labelText: '新预设名称', hintText: '例如：产测 115200-8N1'),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.tonalIcon(
+                        onPressed: () {
+                          if (name.text.trim().isEmpty) return;
+                          setDialogState(() {
+                            _serialProfiles.add(_SerialProfile(
+                              name: name.text.trim(),
+                              baudRate: _baudRate,
+                              dataBits: _dataBits,
+                              stopBits: _stopBits,
+                              parity: _parity,
+                              flowControl: _flowControl,
+                            ));
+                            name.clear();
+                          });
+                        },
+                        icon: const Icon(Icons.bookmark_add_outlined),
+                        label: const Text('保存当前配置'),
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    Expanded(
+                      child: _serialProfiles.isEmpty
+                          ? Center(
+                              child: Text('尚无预设；保存当前参数后可一键复用。',
+                                  style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant)))
+                          : ListView.builder(
+                              itemCount: _serialProfiles.length,
+                              itemBuilder: (context, index) {
+                                final profile = _serialProfiles[index];
+                                return ListTile(
+                                  title: Text(profile.name),
+                                  subtitle: Text(
+                                      '${profile.baudRate} · ${profile.dataBits}${profile.parity == '无 None' ? 'N' : profile.parity[0]}${profile.stopBits} · ${profile.flowControl}'),
+                                  onTap: () {
+                                    _applySerialProfile(profile);
+                                    Navigator.pop(dialogContext);
+                                    _showMessage('已应用串口预设“${profile.name}”');
+                                  },
+                                  trailing: IconButton(
+                                    tooltip: '删除预设',
+                                    icon: const Icon(
+                                        Icons.delete_outline_rounded),
+                                    onPressed: () => setDialogState(
+                                        () => _serialProfiles.removeAt(index)),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ]),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      unawaited(_persistSerialProfiles());
+                      Navigator.pop(dialogContext);
+                    },
+                    child: const Text('完成'),
+                  ),
+                ],
+              )),
+    );
+    name.dispose();
+  }
+
+  Future<void> _exportQueuePreset() async {
+    final location = await getSaveLocation(
+      suggestedName:
+          '${_queueNameController.text.trim().isEmpty ? 'HPCOM_队列' : _queueNameController.text.trim().replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_')}_preset.json',
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'HPCOM 队列预设', extensions: ['json'])
+      ],
+    );
+    if (location == null) return;
+    try {
+      await File(location.path).writeAsString(
+        const JsonEncoder.withIndent('  ').convert({
+          'format': 'hcom-queue-preset',
+          'version': 1,
+          'name': _queueNameController.text,
+          'commands': _queue.map((command) => command.toJson()).toList(),
+        }),
+        flush: true,
+      );
+      if (mounted) _showMessage('队列预设已导出');
+    } on FileSystemException catch (error) {
+      if (mounted) _showMessage('导出队列失败：${error.message}');
+    }
+  }
+
+  Future<void> _importQueuePreset() async {
+    final file = await openFile(acceptedTypeGroups: const [
+      XTypeGroup(label: 'HPCOM 队列预设', extensions: ['json'])
+    ]);
+    if (file == null) return;
+    try {
+      final decoded = jsonDecode(await File(file.path).readAsString());
+      if (decoded is! Map || decoded['format'] != 'hcom-queue-preset') {
+        throw const FormatException('不是 HPCOM 队列预设。');
+      }
+      final map = Map<String, dynamic>.from(decoded);
+      final commands = (map['commands'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) =>
+              _QueuedCommand.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+      if (commands.isEmpty) throw const FormatException('预设中没有可用命令。');
+      if (!mounted) return;
+      setState(() {
+        _queue
+          ..clear()
+          ..addAll(commands);
+        _queueNameController.text = map['name']?.toString() ?? '导入队列';
+      });
+      unawaited(_persistQueueAndTriggers());
+      _showMessage('已导入 ${commands.length} 条队列命令');
+    } on FormatException catch (error) {
+      if (mounted) _showMessage('导入队列失败：${error.message}');
+    } on FileSystemException catch (error) {
+      if (mounted) _showMessage('导入队列失败：${error.message}');
+    }
+  }
+
   Future<void> _loadStartupPreferences() async {
     final preferences = await SharedPreferences.getInstance();
     final offset = preferences.getInt('displayTimeZoneOffsetMinutes');
@@ -476,6 +1292,14 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         preferences.getStringList(_customBaudRatesPreferenceKey) ?? const []);
     final selectedBaudRate =
         preferences.getString(_selectedBaudRatePreferenceKey);
+    final savedQueue = preferences.getString(_queuePresetPreferenceKey);
+    final savedTriggers = preferences.getString(_triggerPreferenceKey);
+    final autoReconnect =
+        preferences.getBool(_autoReconnectPreferenceKey) ?? false;
+    final savedProfiles = preferences.getString(_serialProfilePreferenceKey);
+    final savedTemplates = preferences.getString(_frameTemplatesPreferenceKey);
+    final selectedTemplateId =
+        preferences.getString(_selectedFrameTemplatePreferenceKey);
     if (!mounted) return;
     setState(() {
       if (offset != null && availableTimeZoneOffsets.contains(offset)) {
@@ -495,6 +1319,73 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
           (_standardBaudRates.contains(selectedBaudRate) ||
               customBaudRates.contains(selectedBaudRate))) {
         _baudRate = selectedBaudRate;
+      }
+      _autoReconnect = autoReconnect;
+      if (savedQueue != null) {
+        try {
+          final decoded = jsonDecode(savedQueue) as Map<String, dynamic>;
+          final commands = (decoded['commands'] as List? ?? const [])
+              .whereType<Map>()
+              .map((item) =>
+                  _QueuedCommand.fromJson(Map<String, dynamic>.from(item)))
+              .toList();
+          if (commands.isNotEmpty) {
+            _queue
+              ..clear()
+              ..addAll(commands);
+            _queueNameController.text = decoded['name']?.toString() ?? '默认队列';
+          }
+        } on FormatException {
+          // Ignore a malformed old preference and retain the safe defaults.
+        }
+      }
+      if (savedTriggers != null) {
+        try {
+          final decoded = jsonDecode(savedTriggers);
+          if (decoded is List) {
+            _triggers
+              ..clear()
+              ..addAll(decoded.whereType<Map>().map((item) =>
+                  _TriggerRule.fromJson(Map<String, dynamic>.from(item))));
+          }
+        } on FormatException {
+          // A trigger is optional; never let its persisted form block startup.
+        }
+      }
+      if (savedProfiles != null) {
+        try {
+          final decoded = jsonDecode(savedProfiles);
+          if (decoded is List) {
+            _serialProfiles
+              ..clear()
+              ..addAll(decoded.whereType<Map>().map((item) =>
+                  _SerialProfile.fromJson(Map<String, dynamic>.from(item))));
+          }
+        } on FormatException {
+          // Port profiles are optional and must never block the workbench.
+        }
+      }
+      if (savedTemplates != null) {
+        try {
+          final decoded = jsonDecode(savedTemplates);
+          if (decoded is List) {
+            final templates = decoded
+                .whereType<Map>()
+                .map((item) => FrameTemplate.decode(jsonEncode(item)))
+                .toList();
+            if (templates.isNotEmpty) {
+              _frameTemplates
+                ..clear()
+                ..addAll(templates);
+              _frameTemplate = templates.firstWhere(
+                  (template) => template.id == selectedTemplateId,
+                  orElse: () => templates.first);
+              _configureFrameRecognition();
+            }
+          }
+        } on FormatException {
+          // Keep the built-in template when saved definitions are invalid.
+        }
       }
     });
     if (shouldResumeRealtimeLogging &&
@@ -637,6 +1528,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         var draftRightDockExpanded = _rightRailExpanded;
         var draftQueueExpanded = _queuePanelExpanded;
         var draftStartupRealtimeLoggingEnabled = _startupRealtimeLoggingEnabled;
+        var draftAutoReconnect = _autoReconnect;
         var draftIsDark = widget.isDark;
         final dialogHeight =
             (MediaQuery.sizeOf(context).height - 48).clamp(320.0, 720.0);
@@ -749,6 +1641,15 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                         onChanged: (value) => setDialogState(
                             () => draftStartupRealtimeLoggingEnabled = value),
                       ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        secondary: const Icon(Icons.refresh_rounded),
+                        title: const Text('异常后自动重连'),
+                        subtitle: const Text('非手动关闭时，2 秒后按当前串口配置重试'),
+                        value: draftAutoReconnect,
+                        onChanged: (value) =>
+                            setDialogState(() => draftAutoReconnect = value),
+                      ),
                       const Divider(height: 28),
                       Card(
                         margin: EdgeInsets.zero,
@@ -784,6 +1685,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                             queueExpanded: draftQueueExpanded,
                             startupRealtimeLoggingEnabled:
                                 draftStartupRealtimeLoggingEnabled,
+                            autoReconnect: draftAutoReconnect,
                             isDark: draftIsDark,
                           ),
                         ),
@@ -801,6 +1703,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       _rightRailExpanded = settings.rightDockExpanded;
       _queuePanelExpanded = settings.queueExpanded;
       _startupRealtimeLoggingEnabled = settings.startupRealtimeLoggingEnabled;
+      _autoReconnect = settings.autoReconnect;
     });
     widget.onStartupThemeChanged(settings.isDark);
     final preferences = await SharedPreferences.getInstance();
@@ -813,6 +1716,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       preferences.setBool('startupQueueExpanded', settings.queueExpanded),
       preferences.setBool('startupRealtimeLoggingEnabled',
           settings.startupRealtimeLoggingEnabled),
+      preferences.setBool(_autoReconnectPreferenceKey, settings.autoReconnect),
     ]);
     if (mounted) _showMessage('启动默认值已保存');
   }
@@ -852,7 +1756,16 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       );
 
   void _toggleConnection() {
+    if (_playbackEntries != null) {
+      _stopPlayback();
+      setState(() {
+        _playbackEntries = null;
+        _playbackBookmarks = {};
+      });
+    }
     if (_connected) {
+      _manualDisconnect = true;
+      _reconnectTimer?.cancel();
       _stopPeriodicSend();
       _bridge.send('close_port');
       return;
@@ -863,6 +1776,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       _bridge.send('scan_ports');
       return;
     }
+    _manualDisconnect = false;
     final payload = {
       'port': port.port,
       'baudRate': int.parse(_baudRate),
@@ -886,12 +1800,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
 
   void _selectReceiveFramingMode(ReceiveFramingMode mode) {
     if (mode == _receiveFramingConfig.mode) return;
-    final unfinished = _receiveFramer.flush().map((frame) => SerialEntry(
-          direction: SerialDirection.rx,
-          timestamp: frame.timestamp,
-          hex: frame.hex,
-          label: 'Core',
-        ));
+    final unfinished = _flushFrameBuffers();
     final config = mode == ReceiveFramingMode.templateLength ||
             mode == ReceiveFramingMode.automatic ||
             mode == ReceiveFramingMode.idle
@@ -908,6 +1817,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       _appendEntries(unfinished);
       _receiveFramingConfig = config;
       _receiveFramer.configure(config);
+      _multiFramer?.reset();
     });
     _showMessage('接收分包已切换为 ${config.mode.label}');
   }
@@ -941,12 +1851,165 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       final template = FrameTemplate.decode(await file.readAsString());
       if (!mounted) return;
       setState(() => _setFrameTemplate(template));
+      unawaited(_persistFrameTemplates());
       _showMessage('已导入帧模板“${template.name}”');
     } on FormatException catch (error) {
       if (mounted) _showMessage('导入失败：${error.message}');
     } on FileSystemException catch (error) {
       if (mounted) _showMessage('读取失败：${error.message}');
     }
+  }
+
+  Future<void> _persistFrameTemplates() async {
+    final preferences = await SharedPreferences.getInstance();
+    await Future.wait([
+      preferences.setString(
+          _frameTemplatesPreferenceKey,
+          jsonEncode(
+              _frameTemplates.map((template) => template.toJson()).toList())),
+      preferences.setString(
+          _selectedFrameTemplatePreferenceKey, _frameTemplate.id),
+    ]);
+  }
+
+  Future<void> _showTemplateCatalog() async {
+    await _showContainerTransformDialog<void>(
+      context: context,
+      alignment: Alignment.centerRight,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, refresh) => AlertDialog(
+          title: const Text('协议模板库'),
+          content: SizedBox(
+            width: 520,
+            height: 440,
+            child: Column(children: [
+              Text('模板长度模式会同时识别这里的所有模板；相同帧头可用固定数值字段区分。',
+                  style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _frameTemplates.length,
+                  itemBuilder: (context, index) {
+                    final template = _frameTemplates[index];
+                    final selected = template.id == _frameTemplate.id;
+                    return Card(
+                      child: ListTile(
+                        selected: selected,
+                        leading: Icon(selected
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_unchecked_rounded),
+                        title: Text(template.name),
+                        subtitle: Text(
+                            '${template.role.label} · ${template.fields.length} 字段'),
+                        onTap: () {
+                          setState(() => _setFrameTemplate(template));
+                          refresh(() {});
+                          unawaited(_persistFrameTemplates());
+                        },
+                        trailing:
+                            Row(mainAxisSize: MainAxisSize.min, children: [
+                          IconButton(
+                            tooltip: '复制模板',
+                            onPressed: () {
+                              final copy = template.copyWith(
+                                id: DateTime.now()
+                                    .microsecondsSinceEpoch
+                                    .toString(),
+                                name: '${template.name} 副本',
+                                role: FrameRole.other,
+                              );
+                              setState(() => _setFrameTemplate(copy));
+                              refresh(() {});
+                              unawaited(_persistFrameTemplates());
+                            },
+                            icon: const Icon(Icons.copy_rounded),
+                          ),
+                          IconButton(
+                            tooltip: '删除模板',
+                            onPressed: _frameTemplates.length == 1
+                                ? null
+                                : () {
+                                    setState(() {
+                                      _frameTemplates.removeAt(index);
+                                      if (selected) {
+                                        _setFrameTemplate(
+                                            _frameTemplates.first);
+                                      } else {
+                                        _configureFrameRecognition();
+                                        _rebuildFrameAnalysis();
+                                      }
+                                    });
+                                    refresh(() {});
+                                    unawaited(_persistFrameTemplates());
+                                  },
+                            icon: const Icon(Icons.delete_outline_rounded),
+                          ),
+                        ]),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('完成')),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showTransactions() async {
+    _transactionTracker.expire(DateTime.now().toUtc());
+    await _showContainerTransformDialog<void>(
+      context: context,
+      alignment: Alignment.centerRight,
+      builder: (context) => AlertDialog(
+        title: const Text('请求与响应'),
+        content: SizedBox(
+          width: 560,
+          height: 430,
+          child: _transactionTracker.transactions.isEmpty
+              ? const Center(child: Text('将模板设为请求帧和响应帧，并指定“响应于”，即可开始配对。'))
+              : ListView.builder(
+                  itemCount: _transactionTracker.transactions.length,
+                  itemBuilder: (context, index) {
+                    final transaction = _transactionTracker.transactions[
+                        _transactionTracker.transactions.length - index - 1];
+                    final status = switch (transaction.status) {
+                      TransactionStatus.pending => '等待响应',
+                      TransactionStatus.timedOut => '超时',
+                      TransactionStatus.completed =>
+                        '已响应 · ${transaction.latency?.inMilliseconds ?? 0} ms',
+                    };
+                    return Card(
+                        child: ListTile(
+                      leading: Icon(switch (transaction.status) {
+                        TransactionStatus.pending =>
+                          Icons.hourglass_top_rounded,
+                        TransactionStatus.timedOut => Icons.timer_off_outlined,
+                        TransactionStatus.completed =>
+                          Icons.check_circle_outline_rounded,
+                      }),
+                      title: Text(
+                          '${transaction.requestTemplate.name} → ${transaction.responseTemplate?.name ?? '响应'}'),
+                      subtitle: Text(
+                          '$status · ${transaction.request.hex}${transaction.response == null ? '' : '\n${transaction.response!.hex}'}',
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis),
+                    ));
+                  },
+                ),
+        ),
+        actions: [
+          FilledButton(
+              onPressed: () => Navigator.pop(context), child: const Text('关闭')),
+        ],
+      ),
+    );
   }
 
   Future<ProtocolField?> _editProtocolField(
@@ -959,6 +2022,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     var kind = initial.kind;
     var order = initial.byteOrder;
     var algorithm = initial.checksumAlgorithm;
+    var matchValue = initial.matchValue;
     final result = await _showContainerTransformDialog<ProtocolField>(
       context: context,
       alignment: Alignment.centerRight,
@@ -1005,6 +2069,22 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                             onChanged: (item) =>
                                 setDialogState(() => order = item)),
                       ],
+                      if (kind == ProtocolFieldKind.integer) ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: value,
+                          decoration: const InputDecoration(
+                              labelText: '默认 HEX 值', hintText: '例如 10'),
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('用于识别帧类型'),
+                          subtitle: const Text('收到的值必须与默认 HEX 值一致'),
+                          value: matchValue,
+                          onChanged: (selected) =>
+                              setDialogState(() => matchValue = selected),
+                        ),
+                      ],
                       if (kind == ProtocolFieldKind.checksum) ...[
                         const SizedBox(height: 12),
                         _HcomPopupField<ChecksumAlgorithm>(
@@ -1031,7 +2111,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                           return;
                         }
                         if (kind == ProtocolFieldKind.header ||
-                            kind == ProtocolFieldKind.trailer) {
+                            kind == ProtocolFieldKind.trailer ||
+                            (kind == ProtocolFieldKind.integer && matchValue)) {
                           final parsedValue = tryParseHexBytes(value.text);
                           if (!parsedValue.isValid ||
                               parsedValue.bytes.length != byteLength) {
@@ -1053,6 +2134,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                 byteLength: byteLength,
                                 byteOrder: order,
                                 valueHex: value.text.trim().toUpperCase(),
+                                matchValue: matchValue,
                                 checksumAlgorithm: algorithm));
                       },
                       child: const Text('保存')),
@@ -1068,6 +2150,9 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   Future<void> _showFrameDefinitionDialog() async {
     final name = TextEditingController(text: _frameTemplate.name);
     var fields = List<ProtocolField>.of(_frameTemplate.fields);
+    var role = _frameTemplate.role;
+    var responseToTemplateId = _frameTemplate.responseToTemplateId;
+    var correlationFieldId = _frameTemplate.correlationFieldId;
     final previewController =
         TextEditingController(text: 'AA 55 03 10 20 30 62 0D');
     await _showContainerTransformDialog<void>(
@@ -1092,6 +2177,58 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                     controller: name,
                     onChanged: (_) => setDialogState(() {}),
                     decoration: const InputDecoration(labelText: '帧模板名称')),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(
+                      child: DropdownButtonFormField<FrameRole>(
+                    initialValue: role,
+                    decoration: const InputDecoration(labelText: '帧用途'),
+                    items: [
+                      for (final value in FrameRole.values)
+                        DropdownMenuItem(value: value, child: Text(value.label))
+                    ],
+                    onChanged: (value) =>
+                        setDialogState(() => role = value ?? FrameRole.other),
+                  )),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: DropdownButtonFormField<String>(
+                    initialValue: role == FrameRole.response &&
+                            _frameTemplates
+                                .any((item) => item.id == responseToTemplateId)
+                        ? responseToTemplateId
+                        : '',
+                    decoration: const InputDecoration(labelText: '响应于'),
+                    items: [
+                      const DropdownMenuItem(value: '', child: Text('无关联')),
+                      for (final candidate in _frameTemplates
+                          .where((item) => item.id != _frameTemplate.id))
+                        DropdownMenuItem(
+                            value: candidate.id, child: Text(candidate.name)),
+                    ],
+                    onChanged: role == FrameRole.response
+                        ? (value) =>
+                            setDialogState(() => responseToTemplateId = value)
+                        : null,
+                  )),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: DropdownButtonFormField<String>(
+                    initialValue:
+                        fields.any((item) => item.id == correlationFieldId)
+                            ? correlationFieldId
+                            : '',
+                    decoration: const InputDecoration(labelText: '配对字段'),
+                    items: [
+                      const DropdownMenuItem(value: '', child: Text('按先后顺序')),
+                      for (final field in fields)
+                        DropdownMenuItem(
+                            value: field.id, child: Text(field.name)),
+                    ],
+                    onChanged: (value) =>
+                        setDialogState(() => correlationFieldId = value),
+                  )),
+                ]),
                 const SizedBox(height: 12),
                 Expanded(
                     child: ReorderableListView.builder(
@@ -1185,7 +2322,13 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                       id: _frameTemplate.id,
                       name:
                           name.text.trim().isEmpty ? '未命名模板' : name.text.trim(),
-                      fields: fields)));
+                      fields: fields,
+                      role: role,
+                      responseToTemplateId: role == FrameRole.response
+                          ? responseToTemplateId
+                          : null,
+                      correlationFieldId: correlationFieldId)));
+                  unawaited(_persistFrameTemplates());
                   Navigator.pop(dialogContext);
                   _showMessage('帧模板已应用到字段解析视图');
                 },
@@ -1246,13 +2389,16 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     _showMessage(
         '已加入 ${_queueNameController.text.trim().isEmpty ? '默认队列' : _queueNameController.text.trim()}');
     _commandController.clear();
+    unawaited(_persistQueueAndTriggers());
   }
 
   List<_QueuedCommand> get _enabledQueue =>
       _queue.where((command) => command.enabled).toList(growable: false);
 
-  void _toggleQueueItem(int index, bool? enabled) =>
-      setState(() => _queue[index].enabled = enabled ?? false);
+  void _toggleQueueItem(int index, bool? enabled) => setState(() {
+        _queue[index].enabled = enabled ?? false;
+        unawaited(_persistQueueAndTriggers());
+      });
 
   void _moveQueueItem(int index, int direction) {
     final target = index + direction;
@@ -1260,6 +2406,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     setState(() {
       final item = _queue.removeAt(index);
       _queue.insert(target, item);
+      unawaited(_persistQueueAndTriggers());
     });
   }
 
@@ -1308,6 +2455,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     final index = _queue.indexOf(command);
     if (index < 0) return;
     setState(() => _queue.removeAt(index));
+    unawaited(_persistQueueAndTriggers());
     _showMessage('已删除命令“${command.name}”');
   }
 
@@ -1478,7 +2626,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                 const Text('HPCom 调试助手'),
               ]),
               actions: [
-                _appAction(Icons.folder_open_rounded, '打开日志'),
+                _sessionAction(scheme),
                 _appAction(Icons.account_tree_rounded, '帧定义器',
                     _showFrameDefinitionDialog),
                 _appAction(
@@ -1633,6 +2781,33 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
           tooltip: tooltip,
           onPressed: action ?? () => _showMessage('$tooltip将在后续阶段接入'),
           icon: Icon(icon, size: 20),
+        ),
+      );
+
+  Widget _sessionAction(ColorScheme scheme) => Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: MenuAnchor(
+          style: _hcomMenuSurfaceStyle(scheme),
+          menuChildren: [
+            MenuItemButton(
+              style: _hcomMenuItemStyle(scheme),
+              onPressed: _openSession,
+              leadingIcon: const Icon(Icons.folder_open_rounded),
+              child: const Text('打开会话'),
+            ),
+            MenuItemButton(
+              style: _hcomMenuItemStyle(scheme),
+              onPressed: _saveSession,
+              leadingIcon: const Icon(Icons.save_rounded),
+              child: const Text('保存会话'),
+            ),
+          ],
+          builder: (context, controller, child) => IconButton.filledTonal(
+            tooltip: '会话：打开或保存',
+            onPressed: () =>
+                controller.isOpen ? controller.close() : controller.open(),
+            icon: const Icon(Icons.folder_copy_rounded, size: 20),
+          ),
         ),
       );
 
@@ -1924,6 +3099,14 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                 const ['无', 'RTS/CTS', 'XON/XOFF'],
                                 (value) =>
                                     setState(() => _flowControl = value)),
+                            if (!_connected)
+                              Tooltip(
+                                message: '保存或加载串口参数预设',
+                                child: IconButton.filledTonal(
+                                  onPressed: _showSerialProfiles,
+                                  icon: const Icon(Icons.bookmarks_outlined),
+                                ),
+                              ),
                             Tooltip(
                               message: _connected ? '关闭当前串口' : '按当前配置打开串口',
                               child: FilledButton.icon(
@@ -1942,6 +3125,35 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                     : (_connecting ? '连接中…' : '打开端口')),
                               ),
                             ),
+                            if (_connected) ...[
+                              FilterChip(
+                                label: const Text('DTR'),
+                                selected: _dtrEnabled,
+                                onSelected: (value) {
+                                  setState(() => _dtrEnabled = value);
+                                  _bridge.send(
+                                      'set_control_lines', {'dtr': value});
+                                },
+                              ),
+                              FilterChip(
+                                label: const Text('RTS'),
+                                selected: _rtsEnabled,
+                                onSelected: (value) {
+                                  setState(() => _rtsEnabled = value);
+                                  _bridge.send(
+                                      'set_control_lines', {'rts': value});
+                                },
+                              ),
+                              Tooltip(
+                                message: '发送 250 ms Break 信号',
+                                child: IconButton.filledTonal(
+                                  onPressed: () => _bridge
+                                      .send('send_break', {'durationMs': 250}),
+                                  icon:
+                                      const Icon(Icons.horizontal_rule_rounded),
+                                ),
+                              ),
+                            ],
                             IconButton(
                               tooltip: '收起串口配置',
                               onPressed: _togglePortConfiguration,
@@ -2067,15 +3279,27 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       );
 
   void _clearLog() {
-    if (_entries.isEmpty && _rawEntries.isEmpty) return;
+    if (_entries.isEmpty && _rawEntries.isEmpty && _playbackEntries == null) {
+      return;
+    }
+    _stopPlayback();
     setState(() {
+      _playbackEntries = null;
+      _playbackBookmarks = {};
+      _playbackCursor = 0;
       _entryFlushTimer?.cancel();
       _entryFlushTimer = null;
       _pendingEntries.clear();
       _pendingRawEntries.clear();
+      _pendingReceivedBytes = 0;
+      _pendingFramedBytes = 0;
+      _pendingOrphanBytes = 0;
       _entries.clear();
       _rawEntries.clear();
+      _bookmarkedEntries.clear();
       _parsedEntries.clear();
+      _entryTemplates.clear();
+      _transactionTracker.reset();
       _receivedBytes = 0;
       _framedBytes = 0;
       _orphanBytes = 0;
@@ -2083,12 +3307,85 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       _droppedBurstBytes = 0;
       _trimmedEntryCount = 0;
       _receiveFramer.reset();
+      _multiFramer?.reset();
     });
     _showMessage('已清除当前日志');
   }
 
-  Future<void> _saveLogManually(LogFileFormat format) async {
-    if (_rawEntries.isEmpty) {
+  List<SerialEntry> get _visibleRawEntries {
+    final query = _logSearch.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+    return _rawEntries.where((entry) {
+      final directionMatches = switch (_logDirectionFilter) {
+        _LogDirectionFilter.all => true,
+        _LogDirectionFilter.rx => entry.direction == SerialDirection.rx,
+        _LogDirectionFilter.tx => entry.direction == SerialDirection.tx,
+        _LogDirectionFilter.bookmarked => _bookmarkedEntries.contains(entry),
+      };
+      return directionMatches &&
+          (query.isEmpty ||
+              entry.hex.replaceAll(RegExp(r'\s+'), '').contains(query));
+    }).toList(growable: false);
+  }
+
+  Future<void> _showLogFilter() async {
+    final controller = TextEditingController(text: _logSearch);
+    var direction = _logDirectionFilter;
+    final result = await _showContainerTransformDialog<
+        ({String search, _LogDirectionFilter direction})>(
+      context: context,
+      alignment: Alignment.topCenter,
+      builder: (context) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+                title: const Text('筛选日志'),
+                content: SizedBox(
+                  width: 460,
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    TextField(
+                      controller: controller,
+                      decoration: const InputDecoration(
+                          labelText: 'HEX 搜索', hintText: '例如 AA 55 或 0A'),
+                    ),
+                    const SizedBox(height: 16),
+                    SegmentedButton<_LogDirectionFilter>(
+                      segments: [
+                        for (final value in _LogDirectionFilter.values)
+                          ButtonSegment(value: value, label: Text(value.label)),
+                      ],
+                      selected: {direction},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (values) =>
+                          setDialogState(() => direction = values.first),
+                    ),
+                  ]),
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('取消')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(context,
+                          (search: '', direction: _LogDirectionFilter.all)),
+                      child: const Text('清除筛选')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(context,
+                          (search: controller.text, direction: direction)),
+                      child: const Text('应用')),
+                ],
+              )),
+    );
+    controller.dispose();
+    if (result != null && mounted) {
+      setState(() {
+        _logSearch = result.search;
+        _logDirectionFilter = result.direction;
+      });
+    }
+  }
+
+  Future<void> _saveLogManually(LogFileFormat format,
+      {bool filtered = false}) async {
+    final entries = filtered ? _visibleRawEntries : _rawEntries;
+    if (entries.isEmpty) {
       _showMessage('当前没有可保存的日志。');
       return;
     }
@@ -2096,12 +3393,339 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     if (location == null) return;
     try {
       await File(location.path).writeAsString(
-        serializeLogEntries(_rawEntries, format, _timeZoneOffsetMinutes),
+        serializeLogEntries(entries, format, _timeZoneOffsetMinutes),
         flush: true,
       );
-      if (mounted) _showMessage('日志已保存为 ${format.label}');
+      if (mounted) {
+        _showMessage('${filtered ? '筛选片段' : '日志'}已保存为 ${format.label}');
+      }
     } on FileSystemException catch (error) {
       if (mounted) _showMessage('保存失败：${error.message}');
+    }
+  }
+
+  Map<String, dynamic> _sessionPortSettings() => {
+        'port': _selectedPort?.port,
+        'baudRate': _baudRate,
+        'dataBits': _dataBits,
+        'stopBits': _stopBits,
+        'parity': _parity,
+        'flowControl': _flowControl,
+      };
+
+  void _stopPlayback() {
+    _playbackTimer?.cancel();
+    _playbackTimer = null;
+    _playbackPlaying = false;
+  }
+
+  void _stepPlayback() {
+    final source = _playbackEntries;
+    if (source == null || _playbackCursor >= source.length) {
+      _stopPlayback();
+      return;
+    }
+    final sourceIndex = _playbackCursor;
+    final entry = source[sourceIndex];
+    _playbackCursor++;
+    _consumeCoreEvent({
+      'event': 'serial_data',
+      'payload': {
+        'direction': entry.direction.name,
+        'timestamp': entry.timestamp.toUtc().toIso8601String(),
+        'bytes': entry.hex,
+      },
+    });
+    if (_playbackBookmarks.contains(sourceIndex) &&
+        _pendingRawEntries.isNotEmpty) {
+      _bookmarkedEntries.add(_pendingRawEntries.last);
+    }
+    _flushIncomingEntries();
+    if (_playbackCursor >= source.length) _stopPlayback();
+    if (mounted) setState(() {});
+  }
+
+  void _schedulePlayback() {
+    final source = _playbackEntries;
+    if (!_playbackPlaying || source == null) return;
+    if (_playbackCursor >= source.length) {
+      _stopPlayback();
+      if (mounted) setState(() {});
+      return;
+    }
+    final delay = _playbackCursor == 0
+        ? 0
+        : source[_playbackCursor]
+            .timestamp
+            .difference(source[_playbackCursor - 1].timestamp)
+            .inMilliseconds;
+    final scaled = (delay / _playbackSpeed).round().clamp(0, 2000);
+    _playbackTimer = Timer(Duration(milliseconds: scaled), () {
+      _stepPlayback();
+      _schedulePlayback();
+    });
+  }
+
+  void _togglePlayback() {
+    if (_playbackPlaying) {
+      _stopPlayback();
+    } else {
+      if (_playbackCursor >= (_playbackEntries?.length ?? 0)) {
+        _seekPlayback(0);
+      }
+      _playbackPlaying = true;
+      _schedulePlayback();
+    }
+    setState(() {});
+  }
+
+  void _seekPlayback(int target) {
+    final source = _playbackEntries;
+    if (source == null) return;
+    _stopPlayback();
+    _playbackSeekPreview = null;
+    _entryFlushTimer?.cancel();
+    _pendingEntries.clear();
+    _pendingRawEntries.clear();
+    _pendingReceivedBytes = 0;
+    _pendingFramedBytes = 0;
+    _pendingOrphanBytes = 0;
+    _receiveFramer.reset();
+    _multiFramer?.reset();
+    setState(() {
+      _entries.clear();
+      _rawEntries.clear();
+      _parsedEntries.clear();
+      _entryTemplates.clear();
+      _bookmarkedEntries.clear();
+      _transactionTracker.reset();
+      _receivedBytes = 0;
+      _framedBytes = 0;
+      _orphanBytes = 0;
+      _droppedBytes = 0;
+      _droppedBurstBytes = 0;
+      _trimmedEntryCount = 0;
+      _playbackCursor = 0;
+    });
+    final end = target.clamp(0, source.length);
+    for (var index = 0; index < end; index++) {
+      final entry = source[index];
+      _consumeCoreEvent({
+        'event': 'serial_data',
+        'payload': {
+          'direction': entry.direction.name,
+          'timestamp': entry.timestamp.toUtc().toIso8601String(),
+          'bytes': entry.hex,
+        },
+      });
+      if (_playbackBookmarks.contains(index) && _pendingRawEntries.isNotEmpty) {
+        _bookmarkedEntries.add(_pendingRawEntries.last);
+      }
+      _playbackCursor++;
+    }
+    _flushIncomingEntries();
+  }
+
+  Widget _playbackToolbar(ColorScheme scheme) {
+    final source = _playbackEntries!;
+    return SizedBox(
+      height: 44,
+      child: Row(children: [
+        IconButton.filledTonal(
+          tooltip: _playbackPlaying ? '暂停回放' : '播放会话',
+          onPressed: _togglePlayback,
+          icon: Icon(_playbackPlaying
+              ? Icons.pause_rounded
+              : Icons.play_arrow_rounded),
+        ),
+        IconButton(
+          tooltip: '单步下一条',
+          onPressed: _playbackCursor >= source.length
+              ? null
+              : () {
+                  _stopPlayback();
+                  _stepPlayback();
+                },
+          icon: const Icon(Icons.skip_next_rounded),
+        ),
+        MenuAnchor(
+          style: _hcomMenuSurfaceStyle(scheme),
+          menuChildren: [
+            for (final speed in [0.25, 1.0, 4.0])
+              MenuItemButton(
+                style: _hcomMenuItemStyle(scheme,
+                    selected: _playbackSpeed == speed),
+                onPressed: () => setState(() => _playbackSpeed = speed),
+                child: Text('$speed×'),
+              ),
+          ],
+          builder: (context, controller, child) => TextButton(
+            onPressed: () =>
+                controller.isOpen ? controller.close() : controller.open(),
+            child: Text('$_playbackSpeed×'),
+          ),
+        ),
+        Expanded(
+            child: Slider(
+          value: (_playbackSeekPreview ?? _playbackCursor.toDouble())
+              .clamp(0, source.isEmpty ? 1.0 : source.length.toDouble()),
+          min: 0,
+          max: source.isEmpty ? 1 : source.length.toDouble(),
+          onChanged: (value) => setState(() => _playbackSeekPreview = value),
+          onChangeEnd: (value) => _seekPlayback(value.round()),
+        )),
+        Text('$_playbackCursor/${source.length}',
+            style: TextStyle(color: scheme.onSurfaceVariant)),
+        IconButton(
+          tooltip: '跳到下一个书签',
+          onPressed: _playbackBookmarks.any((index) => index >= _playbackCursor)
+              ? () {
+                  final next = _playbackBookmarks
+                      .where((index) => index >= _playbackCursor)
+                      .reduce((a, b) => a < b ? a : b);
+                  _seekPlayback(next + 1);
+                }
+              : null,
+          icon: const Icon(Icons.bookmark_rounded),
+        ),
+      ]),
+    );
+  }
+
+  Future<void> _saveSession() async {
+    final sessionEntries = _playbackEntries ?? _rawEntries;
+    final location = await getSaveLocation(
+      suggestedName:
+          'HPCOM_会话_${DateTime.now().toIso8601String().replaceAll(':', '-')}.hcomtrace',
+      acceptedTypeGroups: const [
+        XTypeGroup(label: 'HPCOM 会话', extensions: ['hcomtrace'])
+      ],
+    );
+    if (location == null) return;
+    final bookmarkIndexes = <int>[];
+    for (var index = 0; index < sessionEntries.length; index++) {
+      if ((_playbackEntries != null && _playbackBookmarks.contains(index)) ||
+          (_playbackEntries == null &&
+              _bookmarkedEntries.contains(sessionEntries[index]))) {
+        bookmarkIndexes.add(index);
+      }
+    }
+    final session = {
+      'format': 'hcom-session',
+      'version': 2,
+      'savedAt': DateTime.now().toUtc().toIso8601String(),
+      'template': _frameTemplate.toJson(),
+      'templates':
+          _frameTemplates.map((template) => template.toJson()).toList(),
+      'portSettings': _sessionPortSettings(),
+      'queueName': _queueNameController.text,
+      'queue': _queue.map((command) => command.toJson()).toList(),
+      'triggers': _triggers.map((rule) => rule.toJson()).toList(),
+      'entries': sessionEntries.map((entry) => entry.toJson()).toList(),
+      'bookmarks': bookmarkIndexes,
+    };
+    try {
+      await File(location.path).writeAsString(
+          const JsonEncoder.withIndent('  ').convert(session),
+          flush: true);
+      if (mounted) _showMessage('会话已保存：${sessionEntries.length} 条日志');
+    } on FileSystemException catch (error) {
+      if (mounted) _showMessage('会话保存失败：${error.message}');
+    }
+  }
+
+  Future<void> _openSession() async {
+    if (_connected || _connecting) {
+      _showMessage('请先关闭串口，再载入离线会话。');
+      return;
+    }
+    final file = await openFile(acceptedTypeGroups: const [
+      XTypeGroup(label: 'HPCOM 会话', extensions: ['hcomtrace'])
+    ]);
+    if (file == null) return;
+    try {
+      final decoded = jsonDecode(await File(file.path).readAsString());
+      if (decoded is! Map || decoded['format'] != 'hcom-session') {
+        throw const FormatException('不是有效的 HPCOM 会话文件。');
+      }
+      final map = Map<String, dynamic>.from(decoded);
+      final template = FrameTemplate.decode(jsonEncode(map['template']));
+      final templates = (map['templates'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => FrameTemplate.decode(jsonEncode(item)))
+          .toList();
+      if (templates.isEmpty) templates.add(template);
+      final entries = (map['entries'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => SerialEntry.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+      final queue = (map['queue'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) =>
+              _QueuedCommand.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+      final triggers = (map['triggers'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => _TriggerRule.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+      final settings = map['portSettings'] is Map
+          ? Map<String, dynamic>.from(map['portSettings'] as Map)
+          : const <String, dynamic>{};
+      final bookmarkIndexes = (map['bookmarks'] as List? ?? const [])
+          .whereType<num>()
+          .map((index) => index.toInt())
+          .toSet();
+      if (!mounted) return;
+      _stopPlayback();
+      _stopRealtimeLog();
+      setState(() {
+        _entryFlushTimer?.cancel();
+        _pendingEntries.clear();
+        _pendingRawEntries.clear();
+        _pendingReceivedBytes = 0;
+        _pendingFramedBytes = 0;
+        _pendingOrphanBytes = 0;
+        _entries.clear();
+        _rawEntries.clear();
+        _bookmarkedEntries.clear();
+        _parsedEntries.clear();
+        _entryTemplates.clear();
+        _transactionTracker.reset();
+        _receiveFramer.reset();
+        _receivedBytes = 0;
+        _framedBytes = 0;
+        _orphanBytes = 0;
+        _droppedBytes = 0;
+        _droppedBurstBytes = 0;
+        _trimmedEntryCount = 0;
+        _frameTemplates
+          ..clear()
+          ..addAll(templates);
+        _frameTemplate = templates.firstWhere((item) => item.id == template.id,
+            orElse: () => templates.first);
+        _configureFrameRecognition();
+        _playbackEntries = entries;
+        _playbackBookmarks = bookmarkIndexes;
+        _playbackCursor = 0;
+        _queue
+          ..clear()
+          ..addAll(queue);
+        _queueNameController.text = map['queueName']?.toString() ?? '导入队列';
+        _triggers
+          ..clear()
+          ..addAll(triggers);
+        _baudRate = settings['baudRate']?.toString() ?? _baudRate;
+        _dataBits = settings['dataBits']?.toString() ?? _dataBits;
+        _stopBits = settings['stopBits']?.toString() ?? _stopBits;
+        _parity = settings['parity']?.toString() ?? _parity;
+        _flowControl = settings['flowControl']?.toString() ?? _flowControl;
+      });
+      unawaited(_persistQueueAndTriggers());
+      _showMessage('会话已载入：${entries.length} 条记录，可播放、单步或按书签跳转。');
+    } on FormatException catch (error) {
+      if (mounted) _showMessage('无法打开会话：${error.message}');
+    } on FileSystemException catch (error) {
+      if (mounted) _showMessage('无法读取会话：${error.message}');
     }
   }
 
@@ -2163,6 +3787,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   }
 
   void _appendRealtimeLog(SerialEntry entry) {
+    if (_playbackEntries != null) return;
     final path = _realtimeLogPath;
     final format = _realtimeLogFormat;
     if (path == null || format == null) return;
@@ -2276,27 +3901,71 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
-          child: Row(children: [
-            const Icon(Icons.account_tree_rounded, size: 19),
-            const SizedBox(width: 9),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text(_frameTemplate.name,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text(
-                      '${_frameTemplate.fields.length} 个字段 · 已校验 $validCount/${_entries.length} 条',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  const Icon(Icons.account_tree_rounded, size: 16),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _frameTemplate.name,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
                       style: TextStyle(
-                          color: scheme.onSurfaceVariant, fontSize: 11)),
-                ])),
-            FilledButton.tonalIcon(
-              style: _receiveToolbarButtonStyle(),
-              onPressed: _showFrameDefinitionDialog,
-              icon: const Icon(Icons.tune_rounded, size: 18),
-              label: const Text('编辑模板'),
-            ),
-          ]),
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  Text(' · ',
+                      style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500)),
+                  Flexible(
+                    child: Text(
+                      '${_frameTemplates.length} 模板 · ${_frameTemplate.fields.length} 个字段 · 已校验 $validCount/${_entries.length} 条',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  IconButton.filledTonal(
+                    tooltip:
+                        '请求与响应配对 (${_transactionTracker.transactions.length})',
+                    onPressed: _showTransactions,
+                    icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                  ),
+                  const SizedBox(width: 6),
+                  FilledButton.tonalIcon(
+                    style: _receiveToolbarButtonStyle(),
+                    onPressed: _showTemplateCatalog,
+                    icon: const Icon(Icons.library_books_outlined, size: 18),
+                    label: Text('模板库 ${_frameTemplates.length}'),
+                  ),
+                  const SizedBox(width: 6),
+                  FilledButton.tonalIcon(
+                    style: _receiveToolbarButtonStyle(),
+                    onPressed: _showFrameDefinitionDialog,
+                    icon: const Icon(Icons.tune_rounded, size: 18),
+                    label: const Text('编辑模板'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         Divider(height: 1, color: scheme.outlineVariant),
         Expanded(
@@ -2338,7 +4007,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                 fontSize: 12)),
                         subtitle: Text(
                             result.valid
-                                ? '解析通过 · ${entry.byteCount} B'
+                                ? '${_entryTemplates[entry]?.name ?? _frameTemplate.name} · 解析通过 · ${entry.byteCount} B'
                                 : '解析失败 · ${result.error}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -2416,6 +4085,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
           // At very short heights keep all receive actions reachable while
           // giving the stream its last few pixels instead of overflowing.
           final compactToolbar = constraints.maxHeight < 120;
+          final visibleEntries = _visibleRawEntries;
           return Container(
             key: const ValueKey('receive-stream'),
             decoration: BoxDecoration(
@@ -2428,6 +4098,11 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                     : const EdgeInsets.fromLTRB(12, 6, 8, 2),
                 child: _receiveToolbar(scheme),
               ),
+              if (_playbackEntries != null && constraints.maxHeight >= 105)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: _playbackToolbar(scheme),
+                ),
               Expanded(
                 child: Actions(
                   actions: {
@@ -2445,16 +4120,24 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                     contextMenuBuilder: _logContextMenu,
                     child: _rawEntries.isEmpty
                         ? Center(
-                            child: Text('打开串口后，实时 RX/TX 数据将在此显示',
+                            child: Text(
+                                _playbackEntries == null
+                                    ? '打开串口后，实时 RX/TX 数据将在此显示'
+                                    : '会话已载入，点击播放或单步查看记录',
                                 style:
                                     TextStyle(color: scheme.onSurfaceVariant)))
-                        : ListView.builder(
-                            controller: _streamController,
-                            padding: const EdgeInsets.all(8),
-                            itemCount: _rawEntries.length,
-                            itemBuilder: (_, index) =>
-                                _entryRow(_rawEntries[index], scheme, index),
-                          ),
+                        : visibleEntries.isEmpty
+                            ? Center(
+                                child: Text('没有匹配当前筛选条件的日志',
+                                    style: TextStyle(
+                                        color: scheme.onSurfaceVariant)))
+                            : ListView.builder(
+                                controller: _streamController,
+                                padding: const EdgeInsets.all(8),
+                                itemCount: visibleEntries.length,
+                                itemBuilder: (_, index) => _entryRow(
+                                    visibleEntries[index], scheme, index),
+                              ),
                   ),
                 ),
               ),
@@ -2506,6 +4189,20 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         ),
       ),
       const SizedBox(width: 8),
+      Tooltip(
+        message: '按方向、书签或 HEX 筛选日志',
+        child: FilledButton.tonalIcon(
+          style: _receiveToolbarButtonStyle(
+            selected: _logSearch.isNotEmpty ||
+                _logDirectionFilter != _LogDirectionFilter.all,
+            scheme: scheme,
+          ),
+          onPressed: _showLogFilter,
+          icon: const Icon(Icons.filter_alt_outlined, size: 18),
+          label: Text('筛选 ${_visibleRawEntries.length}/${_rawEntries.length}'),
+        ),
+      ),
+      const SizedBox(width: 8),
       MenuAnchor(
         style: _hcomMenuSurfaceStyle(scheme),
         menuChildren: [
@@ -2540,7 +4237,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       MenuAnchor(
         style: _hcomMenuSurfaceStyle(scheme),
         menuChildren: [
-          for (final format in LogFileFormat.values)
+          for (final format in LogFileFormat.values) ...[
             MenuItemButton(
               style: _hcomMenuItemStyle(scheme),
               clipBehavior: Clip.antiAlias,
@@ -2548,6 +4245,15 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
               leadingIcon: const Icon(Icons.save_as_rounded),
               child: Text('手动保存 ${format.label}'),
             ),
+            MenuItemButton(
+              style: _hcomMenuItemStyle(scheme),
+              clipBehavior: Clip.antiAlias,
+              onPressed: () =>
+                  unawaited(_saveLogManually(format, filtered: true)),
+              leadingIcon: const Icon(Icons.content_cut_rounded),
+              child: Text('导出筛选片段 ${format.label}'),
+            ),
+          ],
         ],
         builder: (context, controller, child) => Tooltip(
           message: '将当前全部日志另存为 CSV 或 TXT',
@@ -2629,7 +4335,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         message: '清除当前 RX/TX 日志',
         child: FilledButton.tonalIcon(
           style: _receiveToolbarButtonStyle(),
-          onPressed: _entries.isEmpty ? null : _clearLog,
+          onPressed:
+              _entries.isEmpty && _playbackEntries == null ? null : _clearLog,
           icon: const Icon(Icons.delete_sweep_rounded, size: 18),
           label: const Text('清除日志'),
         ),
@@ -2738,6 +4445,31 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                   child: Text('${entry.byteCount} B',
                       style: TextStyle(
                           fontSize: 11, color: scheme.onSurfaceVariant))),
+            ),
+            const SizedBox(width: 4),
+            SelectionContainer.disabled(
+              child: IconButton(
+                tooltip: _bookmarkedEntries.contains(entry) ? '移除书签' : '添加书签',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => setState(() {
+                  if (!_bookmarkedEntries.add(entry)) {
+                    _bookmarkedEntries.remove(entry);
+                  }
+                  if (_playbackEntries != null) {
+                    final sourceIndex = _rawEntries.indexOf(entry);
+                    if (sourceIndex >= 0) {
+                      if (_bookmarkedEntries.contains(entry)) {
+                        _playbackBookmarks.add(sourceIndex);
+                      } else {
+                        _playbackBookmarks.remove(sourceIndex);
+                      }
+                    }
+                  }
+                }),
+                icon: Icon(_bookmarkedEntries.contains(entry)
+                    ? Icons.bookmark_rounded
+                    : Icons.bookmark_border_rounded),
+              ),
             ),
           ]),
         ),
@@ -2896,6 +4628,11 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                 formatSelector,
                 const SizedBox(width: 10),
                 modeSelector,
+                IconButton(
+                  tooltip: '管理条件触发规则',
+                  onPressed: _showTriggerRules,
+                  icon: const Icon(Icons.bolt_rounded),
+                ),
                 collapseButton,
               ]),
             ),
@@ -2979,6 +4716,20 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
               label: const Text('加入队列')),
         );
 
+    Widget fieldButton({bool iconOnly = false}) => Tooltip(
+          message: '按当前帧模板填充字段并自动计算长度、校验',
+          child: iconOnly
+              ? IconButton.filledTonal(
+                  onPressed: _showFieldComposer,
+                  icon: const Icon(Icons.view_quilt_rounded),
+                )
+              : FilledButton.tonalIcon(
+                  onPressed: _showFieldComposer,
+                  icon: const Icon(Icons.view_quilt_rounded),
+                  label: const Text('字段组包'),
+                ),
+        );
+
     Widget sendButton() => Tooltip(
           message: periodicMode
               ? '按设定间隔重复发送发送框当前消息'
@@ -3026,10 +4777,13 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     // available width cannot safely fit the desktop layout.
     return LayoutBuilder(builder: (context, constraints) {
       final compact = constraints.maxWidth < 420;
+      final fieldControl = fieldButton(iconOnly: constraints.maxWidth < 600);
       if (!compact) {
         return Row(children: [
           Expanded(child: commandInput()),
           if (periodicMode) ...[const SizedBox(width: 10), periodicField()],
+          const SizedBox(width: 10),
+          fieldControl,
           const SizedBox(width: 10),
           packetButton(),
           const SizedBox(width: 10),
@@ -3048,6 +4802,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               if (periodicMode) periodicField(),
+              fieldControl,
               packetButton(),
               queueButton(),
               sendButton(),
@@ -3092,8 +4847,24 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                 prefixIcon: Icon(Icons.drive_file_rename_outline),
                 isDense: true,
               ),
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) {
+                setState(() {});
+                unawaited(_persistQueueAndTriggers());
+              },
             ),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, children: [
+              FilledButton.tonalIcon(
+                onPressed: _exportQueuePreset,
+                icon: const Icon(Icons.save_alt_rounded, size: 18),
+                label: const Text('导出预设'),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: _importQueuePreset,
+                icon: const Icon(Icons.file_open_outlined, size: 18),
+                label: const Text('导入预设'),
+              ),
+            ]),
             const SizedBox(height: 14),
             Text(
               '勾选本次 ${_sendModeLabel()} 要发送的命令',
@@ -3151,7 +4922,10 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                 child: TextFormField(
                   initialValue: command.name,
                   enabled: command.enabled,
-                  onChanged: (value) => command.name = value,
+                  onChanged: (value) {
+                    command.name = value;
+                    unawaited(_persistQueueAndTriggers());
+                  },
                   decoration: const InputDecoration(
                     hintText: '命令名称',
                     isDense: true,
@@ -3176,7 +4950,10 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
             TextFormField(
               initialValue: command.hex,
               enabled: command.enabled,
-              onChanged: (value) => command.hex = value.toUpperCase(),
+              onChanged: (value) {
+                command.hex = value.toUpperCase();
+                unawaited(_persistQueueAndTriggers());
+              },
               decoration: const InputDecoration(
                 hintText: 'HEX 命令',
                 isDense: true,
@@ -3195,8 +4972,10 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                     enabled: command.enabled,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    onChanged: (value) =>
-                        command.delayMilliseconds = int.tryParse(value) ?? 0,
+                    onChanged: (value) {
+                      command.delayMilliseconds = int.tryParse(value) ?? 0;
+                      unawaited(_persistQueueAndTriggers());
+                    },
                     decoration: const InputDecoration(
                       labelText: '发送后延时',
                       suffixText: 'ms',

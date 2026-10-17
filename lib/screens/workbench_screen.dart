@@ -2623,16 +2623,11 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
             child: AppBar(
               primary: false,
               toolbarHeight: 64,
-              titleSpacing: 16,
-              title: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Row(children: [
-                  _brandLogo(size: 30),
-                  const SizedBox(width: 10),
-                  const Text('串口调试助手'),
-                ]),
-              ),
+              // The custom title bar and workspace share the same surface, so
+              // the top chrome reads as one continuous area without a divider.
+              backgroundColor: scheme.surface,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
               actions: [
                 _sessionAction(scheme),
                 _appAction(Icons.account_tree_rounded, '帧定义器',
@@ -2701,10 +2696,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     );
     final title = Container(
       height: 36,
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
-      ),
+      decoration: BoxDecoration(color: scheme.surface),
       child: Row(children: [
         Expanded(
           child: _usesNativeWindowFrame

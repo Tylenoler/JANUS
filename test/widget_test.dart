@@ -46,7 +46,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(const JanusApp());
 
-    expect(find.text('串口调试助手'), findsOneWidget);
+    expect(find.text('串口调试助手'), findsNothing);
     expect(find.text('HEX 原始'), findsOneWidget);
     expect(find.text('统计'), findsNothing);
     expect(find.text('时间轴'), findsNothing);
@@ -469,7 +469,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(const JanusApp());
 
-    final context = tester.element(find.text('串口调试助手'));
+    final context = tester.element(find.text('发送面板'));
     expect(Theme.of(context).textTheme.bodyMedium!.fontFamilyFallback,
         contains(JanusTheme.chineseFontFamily));
     expect(Theme.of(context).textTheme.bodyMedium!.fontFamily,

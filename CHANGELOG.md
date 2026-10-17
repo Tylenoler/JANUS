@@ -16,7 +16,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - Session files now use the `.janustrace` extension; session and queue-preset format identifiers use the `janus-` prefix.
 - Added `JANUS · TITAN Universe` branding to the About dialog and README.
 - Replaced the logo with the new JANUS wordmark, supplied as white-on-transparent and black-on-transparent variants for dark and light surfaces.
-- Replaced the Windows executable and taskbar icon with the black-background JANUS “J” mark.
+- Replaced the Windows executable and taskbar icon with the rounded, black-background JANUS “J” mark.
+- Subset the bundled Noto Sans SC variable font to the characters used by the UI and project documentation, reducing it from 17.8 MB to about 0.5 MB. Regenerate with `python tool/subset_janus_font.py` after adding Chinese UI text.
 - Build variables are now `JANUS_GIT_SHA`, `JANUS_BUILD_TIME`, `JANUS_CORE_PATH` and `JANUS_CARGO_EXECUTABLE`.
 
 ### Breaking

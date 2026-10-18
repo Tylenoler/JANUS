@@ -3018,9 +3018,11 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                 '数据位',
                                 _dataBits,
                                 const ['5', '6', '7', '8'],
-                                (value) => setState(() => _dataBits = value)),
+                                (value) => setState(() => _dataBits = value),
+                                width: 84),
                             _selectField('停止位', _stopBits, const ['1', '2'],
-                                (value) => setState(() => _stopBits = value)),
+                                (value) => setState(() => _stopBits = value),
+                                width: 84),
                             _selectField(
                                 '校验',
                                 _parity,
@@ -3030,8 +3032,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                 '流控',
                                 _flowControl,
                                 const ['无', 'RTS/CTS', 'XON/XOFF'],
-                                (value) =>
-                                    setState(() => _flowControl = value)),
+                                (value) => setState(() => _flowControl = value),
+                                width: 116),
                             if (!_connected)
                               Tooltip(
                                 message: '保存或加载串口参数预设',
@@ -3179,11 +3181,12 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       };
 
   Widget _selectField(String label, String selected, List<String> options,
-          ValueChanged<String> onChanged) =>
+          ValueChanged<String> onChanged,
+          {double width = 132}) =>
       SizedBox(
-        width: 132,
+        width: width,
         child: _JanusPopupField<String>(
-          width: 132,
+          width: width,
           label: label,
           value: selected,
           options: options,

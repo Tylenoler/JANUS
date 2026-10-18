@@ -83,6 +83,31 @@ void main() {
         findsNothing);
   });
 
+  testWidgets(
+      'shows the green port summary only while configuration is collapsed',
+      (tester) async {
+    await tester.pumpWidget(const JanusApp());
+
+    expect(find.byKey(const ValueKey('port-summary')), findsNothing);
+
+    await tester.tap(find.byTooltip('收起串口配置'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('port-summary')), findsOneWidget);
+    expect(find.text('未连接'), findsOneWidget);
+    final chipMaterial = tester.widget<Material>(find
+        .descendant(
+          of: find.byKey(const ValueKey('port-summary')),
+          matching: find.byType(Material),
+        )
+        .first);
+    expect(chipMaterial.color, JanusTheme.txDark);
+
+    await tester.tap(find.text('未连接'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('port-summary')), findsNothing);
+  });
+
   testWidgets('reflows bottom metrics and build identity on a narrow window',
       (tester) async {
     tester.view.physicalSize = const Size(480, 800);
@@ -277,7 +302,7 @@ void main() {
 
     await tester.tap(find.byTooltip('收起串口配置').last);
     await tester.pumpAndSettle();
-    expect(find.byTooltip('展开串口配置'), findsOneWidget);
+    expect(find.byKey(const ValueKey('port-summary')), findsOneWidget);
 
     await tester.tap(find.byTooltip('收起发送面板'));
     await tester.pumpAndSettle();

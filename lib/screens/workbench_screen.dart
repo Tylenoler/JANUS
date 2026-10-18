@@ -2618,24 +2618,6 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       Scaffold(
         body: Column(children: [
           _windowTitleBar(scheme),
-          SizedBox(
-            height: 48,
-            child: AppBar(
-              primary: false,
-              toolbarHeight: 48,
-              // The custom title bar and workspace share the same surface, so
-              // the top chrome reads as one continuous area without a divider.
-              backgroundColor: scheme.surface,
-              surfaceTintColor: Colors.transparent,
-              elevation: 0,
-              actions: [
-                // Only live connection state remains in the top bar; session,
-                // protocol, theme, and settings actions live elsewhere.
-                _connectionChip(scheme),
-                const SizedBox(width: 4),
-              ],
-            ),
-          ),
           Expanded(
             child: Column(children: [
               Expanded(
@@ -2783,12 +2765,12 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         ),
       );
 
-  Widget _connectionChip(ColorScheme scheme) {
-    final accent = widget.isDark ? JanusTheme.txDark : JanusTheme.txLight;
-    final isActive = _connected || _connecting;
+  Widget _connectionChip() {
     final summary = _connected
         ? '${_selectedPort?.port ?? 'COM'} · $_baudRate · $_dataBits-$_parityCode-$_stopBits'
         : (_connecting ? '连接中…' : '未连接');
+    final background = widget.isDark ? JanusTheme.txDark : JanusTheme.txLight;
+    final foreground = widget.isDark ? const Color(0xFF0B1F12) : Colors.white;
     return ScaleTransition(
       scale: TweenSequence<double>([
         TweenSequenceItem(tween: Tween(begin: 1, end: 1.055), weight: 55),
@@ -2796,76 +2778,42 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       ]).animate(CurvedAnimation(
           parent: _connectionPulseController,
           curve: Easing.emphasizedDecelerate)),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Easing.standard,
-        height: 40,
-        decoration: BoxDecoration(
-          color: isActive
-              ? accent.withValues(alpha: .15)
-              : scheme.surfaceContainerLow,
-          border: Border.all(
-              color: isActive
-                  ? accent.withValues(alpha: .55)
-                  : scheme.outlineVariant),
-          borderRadius: BorderRadius.circular(20),
-        ),
+      child: Tooltip(
+        message: '当前串口配置摘要；点击展开配置',
         child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          color: background,
+          borderRadius: BorderRadius.circular(11),
           clipBehavior: Clip.antiAlias,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Tooltip(
-                message: '当前串口配置摘要',
-                child: InkWell(
-                  onTap: _portConfigurationExpanded
-                      ? null
-                      : _togglePortConfiguration,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 14, right: 12),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
-                        switchInCurve: Easing.standard,
-                        child: Icon(
-                            _connected
-                                ? Icons.link_rounded
-                                : Icons.link_off_rounded,
-                            key: ValueKey(_connected),
-                            size: 16,
-                            color:
-                                _connected ? accent : scheme.onSurfaceVariant),
+          child: InkWell(
+            onTap: _togglePortConfiguration,
+            child: Container(
+              height: 22,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(_connected ? Icons.link_rounded : Icons.link_off_rounded,
+                      size: 12, color: foreground),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      summary,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: JanusTheme.latinFontFamily,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: foreground,
                       ),
-                      const SizedBox(width: 8),
-                      Text(summary,
-                          style: const TextStyle(
-                              fontFamily: JanusTheme.latinFontFamily,
-                              fontSize: 12)),
-                    ]),
-                  ),
-                ),
-              ),
-              Container(width: 1, height: 24, color: scheme.outlineVariant),
-              Tooltip(
-                message: _portConfigurationExpanded ? '收起串口配置' : '展开串口配置',
-                child: InkWell(
-                  onTap: _togglePortConfiguration,
-                  child: SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: Icon(
-                      _portConfigurationExpanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      size: 20,
-                      color: isActive ? accent : scheme.onSurfaceVariant,
                     ),
                   ),
-                ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.keyboard_arrow_up_rounded,
+                      size: 14, color: foreground),
+                ]),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -5093,9 +5041,41 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
             ),
           ),
         );
+    final portSummary = AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Easing.emphasizedDecelerate,
+      alignment: Alignment.centerLeft,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 180),
+        switchInCurve: Easing.emphasizedDecelerate,
+        switchOutCurve: Easing.standard,
+        transitionBuilder: (child, animation) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Easing.emphasizedDecelerate,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: .82, end: 1).animate(curved),
+              alignment: Alignment.centerLeft,
+              child: child,
+            ),
+          );
+        },
+        child: _portConfigurationExpanded
+            ? const SizedBox.shrink(key: ValueKey('port-summary-hidden'))
+            : Padding(
+                key: const ValueKey('port-summary'),
+                padding: const EdgeInsets.only(right: 6),
+                child: _connectionChip(),
+              ),
+      ),
+    );
     final leftActions = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        portSummary,
         statusAction(
           Icons.settings_outlined,
           '打开设置',
@@ -5115,19 +5095,17 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       color: scheme.surfaceContainerLow,
       child: LayoutBuilder(builder: (context, constraints) {
-        // Keep live transport data visually centered on a wide desktop while
-        // reserving the far-right edge for the build identity and the far-left
-        // edge for settings and the theme switch. Narrow windows deliberately
-        // reflow instead of clipping or horizontally overflowing.
+        // Keep live transport data centered between the left action group and
+        // the build identity. Narrow windows deliberately reflow instead of
+        // clipping or horizontally overflowing.
         if (constraints.maxWidth >= 1100) {
-          return SizedBox(
-            height: 22,
-            child: Stack(children: [
-              Align(alignment: Alignment.centerLeft, child: leftActions),
-              Align(alignment: Alignment.center, child: metrics),
-              Align(alignment: Alignment.centerRight, child: buildIdentity),
-            ]),
-          );
+          return Row(children: [
+            leftActions,
+            const SizedBox(width: 12),
+            Expanded(child: Center(child: metrics)),
+            const SizedBox(width: 12),
+            buildIdentity,
+          ]);
         }
         return Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [

@@ -1382,6 +1382,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       // behind it instead of visually turning the whole window into a page.
       alignment: Alignment.center,
       barrierColor: Colors.transparent,
+      barrierDismissible: false,
       builder: (context) {
         var draftOffset = _timeZoneOffsetMinutes;
         var draftLeftDockExpanded = _leftRailExpanded;
@@ -1516,7 +1517,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                         contentPadding: EdgeInsets.zero,
                         secondary: const Icon(Icons.fingerprint_rounded),
                         title: const Text('显示硬件 ID'),
-                        subtitle: const Text('在串口设备信息中显示 USB VID/PID 或硬件 ID'),
+                        subtitle: const Text(
+                            '关闭后点击“保存”生效；在串口设备信息中显示 USB VID/PID 或硬件 ID'),
                         value: draftShowHardwareId,
                         onChanged: (value) =>
                             setDialogState(() => draftShowHardwareId = value),

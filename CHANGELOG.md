@@ -7,6 +7,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Documentation
+
+- Rewrote the README with a complete feature guide, quick start, template example, architecture notes, build/test instructions, FAQ, and known limitations.
+- Refreshed the main-window and connection-panel screenshots for the JANUS layout.
+- Updated the GitHub repository description, homepage, and topics to JANUS / TITAN Universe.
+
 ## [2.0.0] - 2026-10-17
 
 ### Changed

@@ -4969,7 +4969,16 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     final tx = _rawEntries
         .where((entry) => entry.direction == SerialDirection.tx)
         .fold(0, (sum, entry) => sum + entry.byteCount);
-    Text item(String label, String value) => Text.rich(
+    Widget statusPill(Widget child) => Container(
+          height: 20,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(widthFactor: 1, child: child),
+        );
+    Widget item(String label, String value) => statusPill(Text.rich(
           TextSpan(
             text: '$label ',
             children: [
@@ -4982,11 +4991,11 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
               ),
             ],
           ),
-          style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
-        );
+          style: TextStyle(fontSize: 10.5, color: scheme.onSurfaceVariant),
+        ));
     final metrics = Wrap(
-      spacing: 20,
-      runSpacing: 2,
+      spacing: 5,
+      runSpacing: 3,
       alignment: WrapAlignment.center,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
@@ -4995,7 +5004,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         item('收到', '$_receivedBytes B'),
         item('已归帧', '$_framedBytes B'),
         item('孤儿', '$_orphanBytes B'),
-        Text.rich(
+        statusPill(Text.rich(
           TextSpan(
             text: '丢失 ',
             children: [
@@ -5009,13 +5018,13 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
               ),
             ],
           ),
-          style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
-        ),
+          style: TextStyle(fontSize: 10.5, color: scheme.onSurfaceVariant),
+        )),
         item('解析', '${_entries.length} 条'),
         if (_trimmedEntryCount > 0) item('已滚动移除', '$_trimmedEntryCount 条'),
       ],
     );
-    final buildIdentity = Text(
+    final buildIdentity = statusPill(Text(
       'App $applicationVersion · Core $coreVersion · IPC $protocolVersion',
       maxLines: 1,
       overflow: TextOverflow.fade,
@@ -5023,9 +5032,9 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       style: TextStyle(
         color: scheme.onSurfaceVariant,
         fontFamily: JanusTheme.latinFontFamily,
-        fontSize: 11.5,
+        fontSize: 10.5,
       ),
-    );
+    ));
     Widget statusAction(
       IconData icon,
       String tooltip,
@@ -5104,9 +5113,9 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       color: scheme.surfaceContainerLow,
       child: LayoutBuilder(builder: (context, constraints) {
-        // Keep live transport data centered between the left action group and
-        // the build identity. Narrow windows deliberately reflow instead of
-        // clipping or horizontally overflowing.
+        // Keep live transport data between the left action group and the build
+        // identity. Narrow windows keep everything on one row and scroll the
+        // metrics horizontally, so the status bar never grows into the workspace.
         if (constraints.maxWidth >= 1100) {
           return Row(children: [
             leftActions,
@@ -5116,21 +5125,17 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
             buildIdentity,
           ]);
         }
-        return Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [
-            leftActions,
-            const SizedBox(width: 10),
-            Expanded(child: metrics),
-          ]),
-          const SizedBox(height: 2),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: buildIdentity,
+        return Row(children: [
+          leftActions,
+          const SizedBox(width: 10),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: metrics,
             ),
           ),
+          const SizedBox(width: 10),
+          buildIdentity,
         ]);
       }),
     );

@@ -108,7 +108,7 @@ void main() {
     expect(find.byKey(const ValueKey('port-summary')), findsNothing);
   });
 
-  testWidgets('reflows bottom metrics and build identity on a narrow window',
+  testWidgets('keeps status metrics in one scrollable row on a narrow window',
       (tester) async {
     tester.view.physicalSize = const Size(480, 800);
     tester.view.devicePixelRatio = 1;
@@ -120,7 +120,8 @@ void main() {
 
     final statusBar = find.byKey(const ValueKey('status-bar'));
     expect(statusBar, findsOneWidget);
-    expect(tester.getSize(statusBar).height, greaterThan(30));
+    expect(tester.getSize(statusBar).height, greaterThanOrEqualTo(30));
+    expect(tester.getSize(statusBar).height, lessThan(40));
     expect(tester.takeException(), isNull);
   });
 

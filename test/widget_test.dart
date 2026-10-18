@@ -506,7 +506,8 @@ void main() {
         JanusTheme.latinFontFamily);
   });
 
-  testWidgets('persists the hardware ID visibility setting', (tester) async {
+  testWidgets('persists the device identity card visibility setting',
+      (tester) async {
     tester.view.physicalSize = const Size(1280, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -515,9 +516,9 @@ void main() {
 
     await tester.tap(find.byTooltip('打开设置'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('显示硬件 ID'));
+    await tester.ensureVisible(find.text('显示设备信息卡'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('显示硬件 ID'));
+    await tester.tap(find.text('显示设备信息卡'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('保存').last);
     await tester.pumpAndSettle();

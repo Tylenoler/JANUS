@@ -1516,9 +1516,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         secondary: const Icon(Icons.fingerprint_rounded),
-                        title: const Text('显示硬件 ID'),
-                        subtitle: const Text(
-                            '关闭后点击“保存”生效；在串口设备信息中显示 USB VID/PID 或硬件 ID'),
+                        title: const Text('显示设备信息卡'),
+                        subtitle: const Text('关闭后点击“保存”生效；卡片显示端口描述与硬件 ID'),
                         value: draftShowHardwareId,
                         onChanged: (value) =>
                             setDialogState(() => draftShowHardwareId = value),
@@ -2903,7 +2902,9 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                           runSpacing: 12,
                           children: [
                             _portField(portWidth),
-                            if (showIdentity && _selectedPort != null)
+                            if (showIdentity &&
+                                _showHardwareId &&
+                                _selectedPort != null)
                               _deviceIdentity(portWidth, scheme),
                             _baudRateField(),
                             _selectField(
@@ -3026,9 +3027,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   Widget _deviceIdentity(double width, ColorScheme scheme) => SizedBox(
         width: width,
         child: Tooltip(
-          message: _showHardwareId
-              ? '硬件 ID: ${_selectedPort!.hardwareId}'
-              : _selectedPort!.description,
+          message: '硬件 ID: ${_selectedPort!.hardwareId}',
           child: Container(
             height: 52,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -3047,14 +3046,13 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w500)),
-                    if (_showHardwareId)
-                      Text(_selectedPort!.hardwareId,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              color: scheme.onSurfaceVariant,
-                              fontFamily: JanusTheme.latinFontFamily,
-                              fontSize: 11)),
+                    Text(_selectedPort!.hardwareId,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: scheme.onSurfaceVariant,
+                            fontFamily: JanusTheme.latinFontFamily,
+                            fontSize: 11)),
                   ])),
             ]),
           ),

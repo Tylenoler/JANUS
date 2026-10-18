@@ -16,6 +16,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - The port device identity card (description + hardware ID) can now be hidden from Settings.
 - The port configuration now collapses automatically after a successful connection by default; this can be disabled in Settings.
 - Settings now requires an explicit Save or Cancel, and the hardware ID switch states that changes apply on save.
+- A new Settings switch can hide the DTR / RTS / Break line-control group.
 
 ### Documentation
 

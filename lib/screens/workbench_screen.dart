@@ -62,6 +62,7 @@ const _triggerPreferenceKey = 'triggerRulesV1';
 const _autoReconnectPreferenceKey = 'autoReconnect';
 const _showHardwareIdPreferenceKey = 'showHardwareId';
 const _autoCollapsePortConfigPreferenceKey = 'autoCollapsePortConfig';
+const _showLineControlsPreferenceKey = 'showLineControls';
 const _frameTemplatesPreferenceKey = 'frameTemplatesV1';
 const _selectedFrameTemplatePreferenceKey = 'selectedFrameTemplateV1';
 
@@ -185,6 +186,7 @@ class _StartupSettings {
     required this.autoReconnect,
     required this.showHardwareId,
     required this.autoCollapsePortConfig,
+    required this.showLineControls,
     required this.isDark,
   });
 
@@ -196,6 +198,7 @@ class _StartupSettings {
   final bool autoReconnect;
   final bool showHardwareId;
   final bool autoCollapsePortConfig;
+  final bool showLineControls;
   final bool isDark;
 }
 
@@ -273,6 +276,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   bool _autoReconnect = false;
   bool _showHardwareId = true;
   bool _autoCollapsePortConfig = true;
+  bool _showLineControls = true;
   bool _manualDisconnect = false;
   bool _dtrEnabled = false;
   bool _rtsEnabled = false;
@@ -1168,6 +1172,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         preferences.getBool(_showHardwareIdPreferenceKey) ?? true;
     final autoCollapsePortConfig =
         preferences.getBool(_autoCollapsePortConfigPreferenceKey) ?? true;
+    final showLineControls =
+        preferences.getBool(_showLineControlsPreferenceKey) ?? true;
     final savedTemplates = preferences.getString(_frameTemplatesPreferenceKey);
     final selectedTemplateId =
         preferences.getString(_selectedFrameTemplatePreferenceKey);
@@ -1194,6 +1200,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       _autoReconnect = autoReconnect;
       _showHardwareId = showHardwareId;
       _autoCollapsePortConfig = autoCollapsePortConfig;
+      _showLineControls = showLineControls;
       if (savedQueue != null) {
         try {
           final decoded = jsonDecode(savedQueue) as Map<String, dynamic>;
@@ -1392,6 +1399,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         var draftAutoReconnect = _autoReconnect;
         var draftShowHardwareId = _showHardwareId;
         var draftAutoCollapsePortConfig = _autoCollapsePortConfig;
+        var draftShowLineControls = _showLineControls;
         var draftIsDark = widget.isDark;
         final dialogHeight =
             (MediaQuery.sizeOf(context).height - 48).clamp(320.0, 720.0);
@@ -1531,6 +1539,15 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                         onChanged: (value) => setDialogState(
                             () => draftAutoCollapsePortConfig = value),
                       ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        secondary: const Icon(Icons.tune_rounded),
+                        title: const Text('显示线路控制'),
+                        subtitle: const Text('保存后生效；连接后显示 DTR、RTS 与 Break 按钮'),
+                        value: draftShowLineControls,
+                        onChanged: (value) =>
+                            setDialogState(() => draftShowLineControls = value),
+                      ),
                       const Divider(height: 28),
                       Card(
                         margin: EdgeInsets.zero,
@@ -1569,6 +1586,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                             autoReconnect: draftAutoReconnect,
                             showHardwareId: draftShowHardwareId,
                             autoCollapsePortConfig: draftAutoCollapsePortConfig,
+                            showLineControls: draftShowLineControls,
                             isDark: draftIsDark,
                           ),
                         ),
@@ -1589,6 +1607,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       _autoReconnect = settings.autoReconnect;
       _showHardwareId = settings.showHardwareId;
       _autoCollapsePortConfig = settings.autoCollapsePortConfig;
+      _showLineControls = settings.showLineControls;
     });
     widget.onStartupThemeChanged(settings.isDark);
     final preferences = await SharedPreferences.getInstance();
@@ -1606,6 +1625,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
           _showHardwareIdPreferenceKey, settings.showHardwareId),
       preferences.setBool(_autoCollapsePortConfigPreferenceKey,
           settings.autoCollapsePortConfig),
+      preferences.setBool(
+          _showLineControlsPreferenceKey, settings.showLineControls),
     ]);
     if (mounted) _showMessage('设置已保存');
   }
@@ -2945,7 +2966,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                     : (_connecting ? '连接中…' : '打开端口')),
                               ),
                             ),
-                            if (_connected) ...[
+                            if (_connected && _showLineControls) ...[
                               FilterChip(
                                 label: const Text('DTR'),
                                 selected: _dtrEnabled,

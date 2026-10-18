@@ -19,7 +19,12 @@ JANUS v2.1.0 is a workbench and settings release. The serial transport, IPC v2 p
 
 ### Download and run
 
-Download `JANUS-v2.1.0-windows-x64.zip`, extract all files into one folder, and start `JANUS.exe`. Keep `janus-core.exe`, `data/`, and the bundled DLL files beside the executable.
+Two packages are available:
+
+- `JANUS-v2.1.0-portable.exe` — single-file self-extracting launcher. Run it directly; the first launch extracts the runtime to `%LOCALAPPDATA%\JANUS\<payload-hash>\` and later launches reuse that directory.
+- `JANUS-v2.1.0-windows-x64.zip` — portable folder. Extract all files into one folder and start `JANUS.exe`. Keep `janus-core.exe`, `data/`, and the bundled DLL files together.
+
+The single-file build is unsigned; SmartScreen or antivirus software may warn about self-extracting executables. Download from this repository and verify with `SHA256SUMS.txt`.
 
 ### Scope note
 
@@ -44,7 +49,12 @@ JANUS v2.1.0 是工作台与设置更新。串口传输、IPC v2 协议、分帧
 
 ### 下载与运行
 
-下载 `JANUS-v2.1.0-windows-x64.zip`，将全部文件解压到同一目录后运行 `JANUS.exe`。请保留可执行文件旁的 `janus-core.exe`、`data/` 和随附 DLL 文件。
+提供两种形式：
+
+- `JANUS-v2.1.0-portable.exe`：自解压单文件启动器。直接运行；首次启动会解压到 `%LOCALAPPDATA%\JANUS\<内容哈希>\`，后续启动直接复用。
+- `JANUS-v2.1.0-windows-x64.zip`：ZIP 便携包。将全部文件解压到同一目录后运行 `JANUS.exe`，并保留同目录下的 `janus-core.exe`、`data/` 与随附 DLL。
+
+单文件包未签名，自解压行为可能触发 SmartScreen 或杀软误报；请从本仓库下载并用 `SHA256SUMS.txt` 核对。
 
 ### 范围说明
 

@@ -143,16 +143,24 @@ JANUS 把日常串口调试拆成四件互相衔接的事：
 
 ## 下载与安装
 
+### 方式 A：单文件（推荐）
+
 1. 打开 **[Releases](https://github.com/Tylenoler/JANUS/releases/latest)**。
-2. 下载 `JANUS-v2.1.0-windows-x64.zip`。
-3. 解压到同一目录，运行 `JANUS.exe`。
+2. 下载 `JANUS-v2.1.0-portable.exe`。
+3. 直接运行。首次启动会把程序解压到 `%LOCALAPPDATA%\JANUS\<内容哈希>\`，之后直接复用，不再重复解压。
 
-| 项目 | 大小 |
-|---|---:|
-| 压缩包下载 | 约 **13.5 MiB** |
-| 解压后 | 约 **31.9 MiB** |
+### 方式 B：ZIP 便携包
 
-请保持以下内容在同一目录，它们共同组成完整程序：
+1. 下载 `JANUS-v2.1.0-windows-x64.zip`。
+2. 解压到同一目录，运行 `JANUS.exe`。
+
+| 形式 | 文件 | 大小 |
+|---|---|---:|
+| 单文件 | `JANUS-v2.1.0-portable.exe` | 约 **13.8 MiB** |
+| ZIP 便携包 | `JANUS-v2.1.0-windows-x64.zip` | 约 **13.4 MiB** |
+| 解压后 | — | 约 **31.9 MiB** |
+
+ZIP 包解压后请保持以下内容在同一目录：
 
 ```text
 JANUS.exe
@@ -162,7 +170,7 @@ flutter_windows.dll
 file_selector_windows_plugin.dll
 ```
 
-> 发布包未做商业代码签名，Windows SmartScreen 可能提示未知发布者。请优先从本仓库 Releases 下载，并用 `SHA256SUMS.txt` 核对文件完整性。
+> 单文件是自解压启动器；未签名的自解压程序可能触发 SmartScreen 或杀软误报，请优先从本仓库 Releases 下载，并用 `SHA256SUMS.txt` 核对文件完整性。
 
 ---
 
@@ -331,6 +339,7 @@ JANUS Core ── DeviceIoControl ── \\.\JanusVcomCtl ── janus-vcom.sys
 |---|---|
 | `lib/` | Flutter 桌面界面、IPC 客户端、协议模型与分帧逻辑 |
 | `core/` | Rust 串口传输核心，生成 `janus-core.exe` |
+| `launcher/` | 自解压单文件启动器（Rust） |
 | `protocol/stdio-ndjson.md` | Flutter 与 Core 的 NDJSON / stdio IPC 契约 |
 | `driver/janus-vcom/` | Windows 虚拟串口驱动源码与安装器 |
 | `Image/` | 品牌资源（字标、方形图标） |
@@ -423,6 +432,22 @@ python tool/subset_janus_font.py
 python tool/make_app_icon.py
 ```
 
+### 构建单文件便携版
+
+先完成 Windows Release 构建，然后运行：
+
+```powershell
+.\scripts\build_portable.ps1 -Version 2.1.0
+```
+
+脚本会生成：
+
+- `build\JANUS-v2.1.0-windows-x64.zip`：只包含运行时文件
+- `build\JANUS-v2.1.0-portable.exe`：自解压单文件
+- `build\SHA256SUMS.txt`：两个发布文件的 SHA256
+
+单文件启动器首次运行时解压到 `%LOCALAPPDATA%\JANUS\<内容哈希>\`，后续启动直接复用。
+
 ### 构建虚拟串口驱动
 
 ```powershell
@@ -450,6 +475,8 @@ cargo test --manifest-path core/Cargo.toml
 
 脚本会依次执行 Dart 格式检查、`flutter analyze`、Flutter 测试、Rust 测试、Windows Release 构建、产物新鲜度检查、启动响应检查、SHA256 生成；若提供已签名驱动包，还会校验内核签名。
 
+需要同时生成 ZIP 与单文件时，再运行 `.\scripts\build_portable.ps1 -Version 2.1.0`。
+
 CI 工作流见 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)。
 
 ---
@@ -459,6 +486,10 @@ CI 工作流见 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)。
 ### 为什么有两个可执行文件？
 
 `JANUS.exe` 是 Flutter 界面；`janus-core.exe` 是 Rust 串口核心。JANUS 启动 Core 并通过 stdio NDJSON 通信。两者必须放在同一目录。
+
+### 单文件 exe 第一次启动为什么更慢？
+
+`JANUS-v2.1.0-portable.exe` 是自解压启动器；首次运行会把运行时文件解压到 `%LOCALAPPDATA%\JANUS\<内容哈希>\`，之后直接复用该目录。它仍然是 Flutter 应用，解压后同样包含 `flutter_windows.dll` 和 `data/`。
 
 ### `data/app.so` 和 `flutter_windows.dll` 是什么？
 

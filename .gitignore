@@ -14,6 +14,7 @@ build/
 
 # Rust
 core/target/
+launcher/target/
 
 # JANUS VCOM build output and formal signing material are release artifacts,
 # never source-controlled credentials or binaries.

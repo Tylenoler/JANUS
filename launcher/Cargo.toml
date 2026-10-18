@@ -1,0 +1,18 @@
+[package]
+name = "janus-launcher"
+version = "0.1.0"
+edition = "2021"
+description = "Single-file self-extracting launcher for the JANUS Windows workbench."
+publish = false
+
+[dependencies]
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[build-dependencies]
+winres = "0.1"

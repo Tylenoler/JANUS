@@ -12,6 +12,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 
 - Settings switches to hide the port device identity card, hide the DTR / RTS / Break line controls, and auto-collapse the port configuration after connecting.
+- A self-extracting single-file portable launcher (`JANUS-v2.1.0-portable.exe`) that extracts to `%LOCALAPPDATA%\JANUS\<payload-hash>\` on first run.
 
 ### Changed
 

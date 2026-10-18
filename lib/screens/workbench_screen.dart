@@ -60,6 +60,7 @@ const _selectedBaudRatePreferenceKey = 'selectedBaudRate';
 const _queuePresetPreferenceKey = 'queuePresetsV1';
 const _triggerPreferenceKey = 'triggerRulesV1';
 const _autoReconnectPreferenceKey = 'autoReconnect';
+const _showHardwareIdPreferenceKey = 'showHardwareId';
 const _frameTemplatesPreferenceKey = 'frameTemplatesV1';
 const _selectedFrameTemplatePreferenceKey = 'selectedFrameTemplateV1';
 
@@ -181,6 +182,7 @@ class _StartupSettings {
     required this.queueExpanded,
     required this.startupRealtimeLoggingEnabled,
     required this.autoReconnect,
+    required this.showHardwareId,
     required this.isDark,
   });
 
@@ -190,6 +192,7 @@ class _StartupSettings {
   final bool queueExpanded;
   final bool startupRealtimeLoggingEnabled;
   final bool autoReconnect;
+  final bool showHardwareId;
   final bool isDark;
 }
 
@@ -265,6 +268,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   final List<_TriggerRule> _triggers = [];
   Timer? _reconnectTimer;
   bool _autoReconnect = false;
+  bool _showHardwareId = true;
   bool _manualDisconnect = false;
   bool _dtrEnabled = false;
   bool _rtsEnabled = false;
@@ -1152,6 +1156,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     final savedTriggers = preferences.getString(_triggerPreferenceKey);
     final autoReconnect =
         preferences.getBool(_autoReconnectPreferenceKey) ?? false;
+    final showHardwareId =
+        preferences.getBool(_showHardwareIdPreferenceKey) ?? true;
     final savedTemplates = preferences.getString(_frameTemplatesPreferenceKey);
     final selectedTemplateId =
         preferences.getString(_selectedFrameTemplatePreferenceKey);
@@ -1176,6 +1182,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         _baudRate = selectedBaudRate;
       }
       _autoReconnect = autoReconnect;
+      _showHardwareId = showHardwareId;
       if (savedQueue != null) {
         try {
           final decoded = jsonDecode(savedQueue) as Map<String, dynamic>;
@@ -1371,6 +1378,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         var draftQueueExpanded = _queuePanelExpanded;
         var draftStartupRealtimeLoggingEnabled = _startupRealtimeLoggingEnabled;
         var draftAutoReconnect = _autoReconnect;
+        var draftShowHardwareId = _showHardwareId;
         var draftIsDark = widget.isDark;
         final dialogHeight =
             (MediaQuery.sizeOf(context).height - 48).clamp(320.0, 720.0);
@@ -1492,6 +1500,15 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                         onChanged: (value) =>
                             setDialogState(() => draftAutoReconnect = value),
                       ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        secondary: const Icon(Icons.fingerprint_rounded),
+                        title: const Text('显示硬件 ID'),
+                        subtitle: const Text('在串口设备信息中显示 USB VID/PID 或硬件 ID'),
+                        value: draftShowHardwareId,
+                        onChanged: (value) =>
+                            setDialogState(() => draftShowHardwareId = value),
+                      ),
                       const Divider(height: 28),
                       Card(
                         margin: EdgeInsets.zero,
@@ -1528,6 +1545,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                             startupRealtimeLoggingEnabled:
                                 draftStartupRealtimeLoggingEnabled,
                             autoReconnect: draftAutoReconnect,
+                            showHardwareId: draftShowHardwareId,
                             isDark: draftIsDark,
                           ),
                         ),
@@ -1546,6 +1564,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       _queuePanelExpanded = settings.queueExpanded;
       _startupRealtimeLoggingEnabled = settings.startupRealtimeLoggingEnabled;
       _autoReconnect = settings.autoReconnect;
+      _showHardwareId = settings.showHardwareId;
     });
     widget.onStartupThemeChanged(settings.isDark);
     final preferences = await SharedPreferences.getInstance();
@@ -1559,8 +1578,10 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       preferences.setBool('startupRealtimeLoggingEnabled',
           settings.startupRealtimeLoggingEnabled),
       preferences.setBool(_autoReconnectPreferenceKey, settings.autoReconnect),
+      preferences.setBool(
+          _showHardwareIdPreferenceKey, settings.showHardwareId),
     ]);
-    if (mounted) _showMessage('启动默认值已保存');
+    if (mounted) _showMessage('设置已保存');
   }
 
   Future<void> _showAbout() => _showContainerTransformDialog<void>(
@@ -2978,7 +2999,9 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   Widget _deviceIdentity(double width, ColorScheme scheme) => SizedBox(
         width: width,
         child: Tooltip(
-          message: '硬件 ID: ${_selectedPort!.hardwareId}',
+          message: _showHardwareId
+              ? '硬件 ID: ${_selectedPort!.hardwareId}'
+              : _selectedPort!.description,
           child: Container(
             height: 52,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -2997,13 +3020,14 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w500)),
-                    Text(_selectedPort!.hardwareId,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            color: scheme.onSurfaceVariant,
-                            fontFamily: JanusTheme.latinFontFamily,
-                            fontSize: 11)),
+                    if (_showHardwareId)
+                      Text(_selectedPort!.hardwareId,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: scheme.onSurfaceVariant,
+                              fontFamily: JanusTheme.latinFontFamily,
+                              fontSize: 11)),
                   ])),
             ]),
           ),

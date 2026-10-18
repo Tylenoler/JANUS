@@ -506,6 +506,26 @@ void main() {
         JanusTheme.latinFontFamily);
   });
 
+  testWidgets('persists the hardware ID visibility setting', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(const JanusApp());
+
+    await tester.tap(find.byTooltip('打开设置'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('显示硬件 ID'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('显示硬件 ID'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存').last);
+    await tester.pumpAndSettle();
+
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getBool('showHardwareId'), isFalse);
+  });
+
   testWidgets('opens the persisted log time-zone setting', (tester) async {
     tester.view.physicalSize = const Size(1280, 820);
     tester.view.devicePixelRatio = 1;

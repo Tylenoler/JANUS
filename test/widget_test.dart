@@ -278,7 +278,11 @@ void main() {
       (tester) async {
     await tester.pumpWidget(const JanusApp());
 
-    await tester.tap(find.byTooltip('添加自定义波特率'));
+    await tester.tap(find.text('115200').first);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('添加自定义波特率…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加自定义波特率…'));
     await tester.pumpAndSettle();
     final dialogSurface = tester.getRect(
       find.byKey(const ValueKey('container-transform-surface')).last,

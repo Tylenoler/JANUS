@@ -3188,36 +3188,34 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
 
   Widget _selectField(String label, String selected, List<String> options,
           ValueChanged<String> onChanged,
-          {double width = 132}) =>
+          {double width = 132,
+          double? menuWidth,
+          VoidCallback? onAddCustom,
+          String addCustomLabel = '添加自定义…'}) =>
       SizedBox(
         width: width,
         child: _JanusPopupField<String>(
           width: width,
+          menuWidth: menuWidth,
           label: label,
           value: selected,
           options: options,
           textOf: (option) => option,
           useMono: true,
+          onAddCustom: onAddCustom,
+          addCustomLabel: addCustomLabel,
           onChanged: _connected || _connecting ? null : onChanged,
         ),
       );
 
-  Widget _baudRateField() => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _selectField('波特率', _baudRate, _baudRateOptions,
-              (value) => unawaited(_selectBaudRate(value))),
-          const SizedBox(width: 4),
-          Tooltip(
-            message: '添加自定义波特率',
-            child: IconButton.filledTonal(
-              onPressed: _connected || _connecting
-                  ? null
-                  : () => unawaited(_addCustomBaudRate()),
-              icon: const Icon(Icons.add_rounded, size: 18),
-            ),
-          ),
-        ],
+  Widget _baudRateField() => _selectField(
+        '波特率',
+        _baudRate,
+        _baudRateOptions,
+        (value) => unawaited(_selectBaudRate(value)),
+        menuWidth: 220,
+        onAddCustom: () => unawaited(_addCustomBaudRate()),
+        addCustomLabel: '添加自定义波特率…',
       );
 
   void _clearLog() {
@@ -5290,9 +5288,13 @@ class _JanusPopupField<T> extends StatelessWidget {
     required this.onChanged,
     this.iconOf,
     this.useMono = false,
+    this.menuWidth,
+    this.onAddCustom,
+    this.addCustomLabel = '添加自定义…',
   });
 
   final double width;
+  final double? menuWidth;
   final String label;
   final T value;
   final List<T> options;
@@ -5300,6 +5302,8 @@ class _JanusPopupField<T> extends StatelessWidget {
   final IconData? Function(T value)? iconOf;
   final ValueChanged<T>? onChanged;
   final bool useMono;
+  final VoidCallback? onAddCustom;
+  final String addCustomLabel;
 
   Widget? _leadingIcon(T option) {
     final icon = iconOf?.call(option);
@@ -5316,21 +5320,45 @@ class _JanusPopupField<T> extends StatelessWidget {
       fontSize: 13,
     );
     return MenuAnchor(
-      style: _janusMenuSurfaceStyle(scheme, width: width),
+      style: _janusMenuSurfaceStyle(scheme, width: menuWidth ?? width),
       crossAxisUnconstrained: false,
       menuChildren: [
-        for (final option in options)
-          MenuItemButton(
-            style: _janusMenuItemStyle(
-              scheme,
-              selected: option == value,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 320),
+          child: SingleChildScrollView(
+            primary: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final option in options)
+                  MenuItemButton(
+                    style: _janusMenuItemStyle(
+                      scheme,
+                      selected: option == value,
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    onPressed: enabled ? () => onChanged!(option) : null,
+                    leadingIcon: _leadingIcon(option),
+                    child: Text(textOf(option),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textStyle),
+                  ),
+              ],
             ),
+          ),
+        ),
+        if (onAddCustom != null) ...[
+          const Divider(height: 1),
+          MenuItemButton(
+            style: _janusMenuItemStyle(scheme),
             clipBehavior: Clip.antiAlias,
-            onPressed: enabled ? () => onChanged!(option) : null,
-            leadingIcon: _leadingIcon(option),
-            child: Text(textOf(option),
+            onPressed: enabled ? onAddCustom : null,
+            leadingIcon: const Icon(Icons.add_rounded),
+            child: Text(addCustomLabel,
                 maxLines: 1, overflow: TextOverflow.ellipsis, style: textStyle),
           ),
+        ],
       ],
       builder: (context, controller, child) => SizedBox(
         width: width,

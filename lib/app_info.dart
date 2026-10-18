@@ -1,5 +1,5 @@
 /// Keep this aligned with pubspec.yaml using Semantic Versioning.
-const applicationVersion = '2.0.0';
+const applicationVersion = '2.1.0';
 const coreVersion = '0.4.0';
 const protocolVersion = 'v2';
 

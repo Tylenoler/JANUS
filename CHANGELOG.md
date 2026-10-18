@@ -7,16 +7,21 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-18
+
+### Added
+
+- Settings switches to hide the port device identity card, hide the DTR / RTS / Break line controls, and auto-collapse the port configuration after connecting.
+
 ### Changed
 
-- The bottom port summary is now red while disconnected and turns green only after a successful connection.
+- Reworked the workbench chrome: removed the top AppBar, moved session, frame definition, import, and export to the right rail, and moved settings, theme, port summary, metrics, and build identity to the bottom bar.
+- The bottom port summary is now red while disconnected and turns green only after a successful connection, with an animated appearance when the configuration collapses.
 - Status-bar metrics and the build identity now render as capsule pills.
-- The custom baud-rate entry now lives at the bottom of the baud-rate dropdown instead of a separate + button.
+- Serial parameter dropdowns are sized to their content; the custom baud-rate entry now lives at the bottom of the baud-rate dropdown instead of a separate + button.
 - Removed the standalone serial-parameter preset button from the port configuration for now.
 - The port device identity card (description + hardware ID) can now be hidden from Settings.
-- The port configuration now collapses automatically after a successful connection by default; this can be disabled in Settings.
-- Settings now requires an explicit Save or Cancel, and the hardware ID switch states that changes apply on save.
-- A new Settings switch can hide the DTR / RTS / Break line-control group.
+- Settings now requires an explicit Save or Cancel, and states that hardware ID changes apply on save.
 
 ### Documentation
 
@@ -119,7 +124,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 - Windows UART/COM workbench, connection workflow, send queue, receive framing, and logging.
 
-[Unreleased]: https://github.com/Tylenoler/JANUS/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/Tylenoler/JANUS/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/Tylenoler/JANUS/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Tylenoler/JANUS/compare/v1.0.1...v2.0.0
 [1.0.1]: https://github.com/Tylenoler/JANUS/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Tylenoler/JANUS/compare/v0.4.0...v1.0.0

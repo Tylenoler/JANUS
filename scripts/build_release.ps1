@@ -148,7 +148,7 @@ try {
 
     Write-Host "`nBUILD SUCCEEDED" -ForegroundColor Green
     Write-Host "Release: $releaseDirectory"
-    Write-Host "Identity: JANUS 2.0.0 · Core 0.4.0 · IPC v2 · $revision · $buildTime"
+    Write-Host "Identity: JANUS 2.1.0 · Core 0.4.0 · IPC v2 · $revision · $buildTime"
     Write-Host "SHA256: $hashFile"
 }
 finally {

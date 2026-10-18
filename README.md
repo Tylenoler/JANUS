@@ -144,7 +144,7 @@ JANUS 把日常串口调试拆成四件互相衔接的事：
 ## 下载与安装
 
 1. 打开 **[Releases](https://github.com/Tylenoler/JANUS/releases/latest)**。
-2. 下载 `JANUS-v2.0.0-windows-x64.zip`。
+2. 下载 `JANUS-v2.1.0-windows-x64.zip`。
 3. 解压到同一目录，运行 `JANUS.exe`。
 
 | 项目 | 大小 |
@@ -321,7 +321,7 @@ JANUS Core ── DeviceIoControl ── \\.\JanusVcomCtl ── janus-vcom.sys
 3. 外部软件连接虚拟端口的一端；JANUS 在真实端口与虚拟端口之间双向转发，并统一记录 RX/TX。
 4. 监听模式下 JANUS 不主动写入，避免成为第二个发送方。
 
-> **v2.0.0 不包含已签名的驱动包。** 改名后的 `janus-vcom` 是新的驱动二进制，需要重新构建并通过 Microsoft 签名后才能分发监听模式。当前版本请使用物理 COM 口。源码与构建脚本位于 [`driver/janus-vcom/`](driver/janus-vcom/)。
+> **当前版本不包含已签名的驱动包。** 改名后的 `janus-vcom` 是新的驱动二进制，需要重新构建并通过 Microsoft 签名后才能分发监听模式。当前版本请使用物理 COM 口。源码与构建脚本位于 [`driver/janus-vcom/`](driver/janus-vcom/)。
 
 ---
 
@@ -479,7 +479,7 @@ JANUS 内置的是 Noto Sans SC 子集，覆盖当前界面与文档用字；用
 
 ### 为什么监听模式不能直接用？
 
-`janus-vcom` 是内核驱动，改名后的新包需要重新通过 Microsoft 签名。v2.0.0 的发布包不包含签名驱动，因此请使用物理 COM；源码与构建流程已经保留。
+`janus-vcom` 是内核驱动，改名后的新包需要重新通过 Microsoft 签名。当前版本的发布包不包含签名驱动，因此请使用物理 COM；源码与构建流程已经保留。
 
 ### 支持 Mark / Space 校验吗？
 
@@ -495,7 +495,7 @@ JANUS 内置的是 Noto Sans SC 子集，覆盖当前界面与文档用字；用
 
 - Windows 10 / 11，64 位。
 - 可用的物理串口设备及其 Windows 驱动。
-- v2.0.0 仅随附物理 COM 工作流；签名虚拟 COM 驱动与完整监听模式待后续发布。
+- 当前版本仅随附物理 COM 工作流；签名虚拟 COM 驱动与完整监听模式待后续发布。
 - 当前不包含 TCP / UDP / 蓝牙 / CAN / I2C 等扩展通信（产品路线中预留插件化扩展）。
 - 不做示波器、逻辑分析仪或高速波形抓取。
 - 旧版 HPCom 会话与队列预设不兼容；帧模板 JSON 兼容。
@@ -543,4 +543,4 @@ cargo test --manifest-path core/Cargo.toml
 
 JANUS 是 **TITAN 宇宙** 中的双向串口工作台。名字取自罗马神话中的双面门神雅努斯：一面回望来路，一面注视去路。它对应串口的 RX 与 TX，也对应调试工作中“设备侧”与“工程师侧”的边界。
 
-> 版本：App `2.0.0` · Core `0.4.0` · IPC `v2`
+> 版本：App `2.1.0` · Core `0.4.0` · IPC `v2`

@@ -1,7 +1,7 @@
 name: janus
 description: JANUS UART debugging assistant for Windows.
 publish_to: none
-version: 2.0.0+3
+version: 2.1.0+4
 
 environment:
   sdk: ^3.4.0

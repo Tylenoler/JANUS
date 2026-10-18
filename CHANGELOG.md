@@ -12,6 +12,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - The bottom port summary is now red while disconnected and turns green only after a successful connection.
 - Status-bar metrics and the build identity now render as capsule pills.
 - The custom baud-rate entry now lives at the bottom of the baud-rate dropdown instead of a separate + button.
+- Removed the standalone serial-parameter preset button from the port configuration for now.
 
 ### Documentation
 

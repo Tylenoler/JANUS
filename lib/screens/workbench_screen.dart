@@ -60,7 +60,6 @@ const _selectedBaudRatePreferenceKey = 'selectedBaudRate';
 const _queuePresetPreferenceKey = 'queuePresetsV1';
 const _triggerPreferenceKey = 'triggerRulesV1';
 const _autoReconnectPreferenceKey = 'autoReconnect';
-const _serialProfilePreferenceKey = 'serialProfilesV1';
 const _frameTemplatesPreferenceKey = 'frameTemplatesV1';
 const _selectedFrameTemplatePreferenceKey = 'selectedFrameTemplateV1';
 
@@ -168,42 +167,6 @@ class _TriggerRule {
       );
 }
 
-class _SerialProfile {
-  const _SerialProfile({
-    required this.name,
-    required this.baudRate,
-    required this.dataBits,
-    required this.stopBits,
-    required this.parity,
-    required this.flowControl,
-  });
-
-  final String name;
-  final String baudRate;
-  final String dataBits;
-  final String stopBits;
-  final String parity;
-  final String flowControl;
-
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'baudRate': baudRate,
-        'dataBits': dataBits,
-        'stopBits': stopBits,
-        'parity': parity,
-        'flowControl': flowControl,
-      };
-
-  factory _SerialProfile.fromJson(Map<String, dynamic> json) => _SerialProfile(
-        name: json['name']?.toString() ?? '串口配置',
-        baudRate: json['baudRate']?.toString() ?? '115200',
-        dataBits: json['dataBits']?.toString() ?? '8',
-        stopBits: json['stopBits']?.toString() ?? '1',
-        parity: json['parity']?.toString() ?? '无 None',
-        flowControl: json['flowControl']?.toString() ?? '无',
-      );
-}
-
 String _appendPacketSuffix(String bytes, PacketSuffix suffix) {
   final base = bytes.trim();
   if (base.isEmpty) return suffix.hex;
@@ -305,7 +268,6 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   bool _manualDisconnect = false;
   bool _dtrEnabled = false;
   bool _rtsEnabled = false;
-  final List<_SerialProfile> _serialProfiles = [];
   final List<_QueuedCommand> _queue = [
     _QueuedCommand(
       name: '心跳',
@@ -1116,116 +1078,6 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     ]);
   }
 
-  Future<void> _persistSerialProfiles() async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(
-        _serialProfilePreferenceKey,
-        jsonEncode(
-            _serialProfiles.map((profile) => profile.toJson()).toList()));
-  }
-
-  void _applySerialProfile(_SerialProfile profile) {
-    setState(() {
-      _baudRate = profile.baudRate;
-      _dataBits = profile.dataBits;
-      _stopBits = profile.stopBits;
-      _parity = profile.parity;
-      _flowControl = profile.flowControl;
-      if (!_standardBaudRates.contains(profile.baudRate) &&
-          !_customBaudRates.contains(profile.baudRate)) {
-        _customBaudRates.add(profile.baudRate);
-      }
-    });
-  }
-
-  Future<void> _showSerialProfiles() async {
-    final name = TextEditingController();
-    await _showContainerTransformDialog<void>(
-      context: context,
-      alignment: Alignment.center,
-      builder: (dialogContext) => StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
-                title: const Text('串口配置预设'),
-                content: SizedBox(
-                  width: 480,
-                  height: 380,
-                  child: Column(children: [
-                    TextField(
-                      controller: name,
-                      decoration: const InputDecoration(
-                          labelText: '新预设名称', hintText: '例如：产测 115200-8N1'),
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: FilledButton.tonalIcon(
-                        onPressed: () {
-                          if (name.text.trim().isEmpty) return;
-                          setDialogState(() {
-                            _serialProfiles.add(_SerialProfile(
-                              name: name.text.trim(),
-                              baudRate: _baudRate,
-                              dataBits: _dataBits,
-                              stopBits: _stopBits,
-                              parity: _parity,
-                              flowControl: _flowControl,
-                            ));
-                            name.clear();
-                          });
-                        },
-                        icon: const Icon(Icons.bookmark_add_outlined),
-                        label: const Text('保存当前配置'),
-                      ),
-                    ),
-                    const Divider(height: 24),
-                    Expanded(
-                      child: _serialProfiles.isEmpty
-                          ? Center(
-                              child: Text('尚无预设；保存当前参数后可一键复用。',
-                                  style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant)))
-                          : ListView.builder(
-                              itemCount: _serialProfiles.length,
-                              itemBuilder: (context, index) {
-                                final profile = _serialProfiles[index];
-                                return ListTile(
-                                  title: Text(profile.name),
-                                  subtitle: Text(
-                                      '${profile.baudRate} · ${profile.dataBits}${profile.parity == '无 None' ? 'N' : profile.parity[0]}${profile.stopBits} · ${profile.flowControl}'),
-                                  onTap: () {
-                                    _applySerialProfile(profile);
-                                    Navigator.pop(dialogContext);
-                                    _showMessage('已应用串口预设“${profile.name}”');
-                                  },
-                                  trailing: IconButton(
-                                    tooltip: '删除预设',
-                                    icon: const Icon(
-                                        Icons.delete_outline_rounded),
-                                    onPressed: () => setDialogState(
-                                        () => _serialProfiles.removeAt(index)),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ]),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      unawaited(_persistSerialProfiles());
-                      Navigator.pop(dialogContext);
-                    },
-                    child: const Text('完成'),
-                  ),
-                ],
-              )),
-    );
-    name.dispose();
-  }
-
   Future<void> _exportQueuePreset() async {
     final location = await getSaveLocation(
       suggestedName:
@@ -1300,7 +1152,6 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     final savedTriggers = preferences.getString(_triggerPreferenceKey);
     final autoReconnect =
         preferences.getBool(_autoReconnectPreferenceKey) ?? false;
-    final savedProfiles = preferences.getString(_serialProfilePreferenceKey);
     final savedTemplates = preferences.getString(_frameTemplatesPreferenceKey);
     final selectedTemplateId =
         preferences.getString(_selectedFrameTemplatePreferenceKey);
@@ -1354,19 +1205,6 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
           }
         } on FormatException {
           // A trigger is optional; never let its persisted form block startup.
-        }
-      }
-      if (savedProfiles != null) {
-        try {
-          final decoded = jsonDecode(savedProfiles);
-          if (decoded is List) {
-            _serialProfiles
-              ..clear()
-              ..addAll(decoded.whereType<Map>().map((item) =>
-                  _SerialProfile.fromJson(Map<String, dynamic>.from(item))));
-          }
-        } on FormatException {
-          // Port profiles are optional and must never block the workbench.
         }
       }
       if (savedTemplates != null) {
@@ -3040,14 +2878,6 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                 const ['无', 'RTS/CTS', 'XON/XOFF'],
                                 (value) => setState(() => _flowControl = value),
                                 width: 116),
-                            if (!_connected)
-                              Tooltip(
-                                message: '保存或加载串口参数预设',
-                                child: IconButton.filledTonal(
-                                  onPressed: _showSerialProfiles,
-                                  icon: const Icon(Icons.bookmarks_outlined),
-                                ),
-                              ),
                             Tooltip(
                               message: _connected ? '关闭当前串口' : '按当前配置打开串口',
                               child: FilledButton.icon(

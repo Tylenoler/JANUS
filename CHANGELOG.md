@@ -14,6 +14,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - The custom baud-rate entry now lives at the bottom of the baud-rate dropdown instead of a separate + button.
 - Removed the standalone serial-parameter preset button from the port configuration for now.
 - The hardware ID in the port identity card can now be hidden from Settings.
+- The port configuration now collapses automatically after a successful connection by default; this can be disabled in Settings.
 
 ### Documentation
 

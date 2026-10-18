@@ -61,6 +61,7 @@ const _queuePresetPreferenceKey = 'queuePresetsV1';
 const _triggerPreferenceKey = 'triggerRulesV1';
 const _autoReconnectPreferenceKey = 'autoReconnect';
 const _showHardwareIdPreferenceKey = 'showHardwareId';
+const _autoCollapsePortConfigPreferenceKey = 'autoCollapsePortConfig';
 const _frameTemplatesPreferenceKey = 'frameTemplatesV1';
 const _selectedFrameTemplatePreferenceKey = 'selectedFrameTemplateV1';
 
@@ -183,6 +184,7 @@ class _StartupSettings {
     required this.startupRealtimeLoggingEnabled,
     required this.autoReconnect,
     required this.showHardwareId,
+    required this.autoCollapsePortConfig,
     required this.isDark,
   });
 
@@ -193,6 +195,7 @@ class _StartupSettings {
   final bool startupRealtimeLoggingEnabled;
   final bool autoReconnect;
   final bool showHardwareId;
+  final bool autoCollapsePortConfig;
   final bool isDark;
 }
 
@@ -269,6 +272,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   Timer? _reconnectTimer;
   bool _autoReconnect = false;
   bool _showHardwareId = true;
+  bool _autoCollapsePortConfig = true;
   bool _manualDisconnect = false;
   bool _dtrEnabled = false;
   bool _rtsEnabled = false;
@@ -729,12 +733,16 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         final state = payload['state'];
         if (state is! String) return;
         final wasConnected = _connected;
+        final becameConnected = state == 'connected' && !wasConnected;
         setState(() {
           _connecting = state == 'connecting';
           _connected = state == 'connected';
+          if (becameConnected && _autoCollapsePortConfig) {
+            _portConfigurationExpanded = false;
+          }
         });
         if (!_connected && wasConnected) _stopPeriodicSend();
-        if (_connected && !wasConnected) {
+        if (becameConnected) {
           _reconnectTimer?.cancel();
           _connectionPulseController.forward(from: 0);
           _showMessage('已连接 ${payload['port'] ?? _selectedPort?.port ?? '串口'}');
@@ -1158,6 +1166,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         preferences.getBool(_autoReconnectPreferenceKey) ?? false;
     final showHardwareId =
         preferences.getBool(_showHardwareIdPreferenceKey) ?? true;
+    final autoCollapsePortConfig =
+        preferences.getBool(_autoCollapsePortConfigPreferenceKey) ?? true;
     final savedTemplates = preferences.getString(_frameTemplatesPreferenceKey);
     final selectedTemplateId =
         preferences.getString(_selectedFrameTemplatePreferenceKey);
@@ -1183,6 +1193,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       }
       _autoReconnect = autoReconnect;
       _showHardwareId = showHardwareId;
+      _autoCollapsePortConfig = autoCollapsePortConfig;
       if (savedQueue != null) {
         try {
           final decoded = jsonDecode(savedQueue) as Map<String, dynamic>;
@@ -1379,6 +1390,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         var draftStartupRealtimeLoggingEnabled = _startupRealtimeLoggingEnabled;
         var draftAutoReconnect = _autoReconnect;
         var draftShowHardwareId = _showHardwareId;
+        var draftAutoCollapsePortConfig = _autoCollapsePortConfig;
         var draftIsDark = widget.isDark;
         final dialogHeight =
             (MediaQuery.sizeOf(context).height - 48).clamp(320.0, 720.0);
@@ -1509,6 +1521,15 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                         onChanged: (value) =>
                             setDialogState(() => draftShowHardwareId = value),
                       ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        secondary: const Icon(Icons.unfold_less_rounded),
+                        title: const Text('打开端口后收起配置'),
+                        subtitle: const Text('连接成功后自动收起串口参数，留出更多数据区空间'),
+                        value: draftAutoCollapsePortConfig,
+                        onChanged: (value) => setDialogState(
+                            () => draftAutoCollapsePortConfig = value),
+                      ),
                       const Divider(height: 28),
                       Card(
                         margin: EdgeInsets.zero,
@@ -1546,6 +1567,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                 draftStartupRealtimeLoggingEnabled,
                             autoReconnect: draftAutoReconnect,
                             showHardwareId: draftShowHardwareId,
+                            autoCollapsePortConfig: draftAutoCollapsePortConfig,
                             isDark: draftIsDark,
                           ),
                         ),
@@ -1565,6 +1587,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       _startupRealtimeLoggingEnabled = settings.startupRealtimeLoggingEnabled;
       _autoReconnect = settings.autoReconnect;
       _showHardwareId = settings.showHardwareId;
+      _autoCollapsePortConfig = settings.autoCollapsePortConfig;
     });
     widget.onStartupThemeChanged(settings.isDark);
     final preferences = await SharedPreferences.getInstance();
@@ -1580,6 +1603,8 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       preferences.setBool(_autoReconnectPreferenceKey, settings.autoReconnect),
       preferences.setBool(
           _showHardwareIdPreferenceKey, settings.showHardwareId),
+      preferences.setBool(_autoCollapsePortConfigPreferenceKey,
+          settings.autoCollapsePortConfig),
     ]);
     if (mounted) _showMessage('设置已保存');
   }

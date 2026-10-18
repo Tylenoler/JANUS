@@ -2769,8 +2769,14 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     final summary = _connected
         ? '${_selectedPort?.port ?? 'COM'} · $_baudRate · $_dataBits-$_parityCode-$_stopBits'
         : (_connecting ? '连接中…' : '未连接');
-    final background = widget.isDark ? JanusTheme.txDark : JanusTheme.txLight;
-    final foreground = widget.isDark ? const Color(0xFF0B1F12) : Colors.white;
+    // Green means a live session; any other state stays red so the bottom bar
+    // never suggests a connection that is not actually open.
+    final background = _connected
+        ? (widget.isDark ? JanusTheme.txDark : JanusTheme.txLight)
+        : (widget.isDark ? const Color(0xFFE5484D) : const Color(0xFFC62828));
+    final foreground = _connected
+        ? (widget.isDark ? const Color(0xFF0B1F12) : Colors.white)
+        : Colors.white;
     return ScaleTransition(
       scale: TweenSequence<double>([
         TweenSequenceItem(tween: Tween(begin: 1, end: 1.055), weight: 55),

@@ -84,7 +84,7 @@ void main() {
   });
 
   testWidgets(
-      'shows the green port summary only while configuration is collapsed',
+      'shows the red port summary only while configuration is collapsed',
       (tester) async {
     await tester.pumpWidget(const JanusApp());
 
@@ -101,7 +101,7 @@ void main() {
           matching: find.byType(Material),
         )
         .first);
-    expect(chipMaterial.color, JanusTheme.txDark);
+    expect(chipMaterial.color, const Color(0xFFE5484D));
 
     await tester.tap(find.text('未连接'));
     await tester.pumpAndSettle();

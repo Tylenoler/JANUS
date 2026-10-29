@@ -65,6 +65,16 @@ void main() {
     expect(find.byKey(const ValueKey('queue-editor-panel')), findsNothing);
   });
 
+  testWidgets('renders the empty receive message with Chinese font metrics',
+      (tester) async {
+    await tester.pumpWidget(const JanusApp());
+
+    final message = tester.widget<Text>(find.text('打开串口后，实时 RX/TX 数据将在此显示'));
+    expect(message.style?.fontFamily, JanusTheme.chineseFontFamily);
+    expect(message.style?.fontWeight, FontWeight.w500);
+    expect(message.style?.height, greaterThanOrEqualTo(1.5));
+  });
+
   testWidgets('selects the JANUS logo variant for the active theme',
       (tester) async {
     await tester.pumpWidget(const JanusApp());
@@ -164,6 +174,20 @@ void main() {
     expect(find.text('JANUS 串口调试助手'), findsOneWidget);
     expect(find.text('JANUS · TITAN Universe'), findsOneWidget);
     expect(find.text('TITAN Universe'), findsOneWidget);
+    expect(
+        find.image(const AssetImage('Image/JANUS_ICON.png')), findsOneWidget);
+    expect(
+        find.image(const AssetImage('Image/TITAN_ICON.png')), findsOneWidget);
+    final jIcon =
+        tester.getRect(find.image(const AssetImage('Image/JANUS_ICON.png')));
+    expect(jIcon.width, greaterThan(40));
+    expect(jIcon.width, lessThan(100));
+    expect(jIcon.width, closeTo(jIcon.height, .1));
+    expect(
+        tester
+            .getRect(find.image(const AssetImage('Image/TITAN_ICON.png')))
+            .height,
+        closeTo(24, .1));
     // Read the shipped constant instead of a literal so a version bump cannot
     // silently break this test.
     expect(find.text('版本 $applicationVersion'), findsAtLeastNWidgets(1));
@@ -176,6 +200,21 @@ void main() {
         find.byKey(const ValueKey('container-transform-surface')).last);
     expect(aboutSurface.width, lessThan(1280));
     expect(aboutSurface.height, lessThan(820));
+  });
+
+  testWidgets('scrolls the settings dialog without scrollbar errors',
+      (tester) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(const JanusApp());
+
+    await tester.tap(find.byTooltip('打开设置'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('日志时间时区'), const Offset(0, -240));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('calculates and returns a complete integrity frame',
@@ -602,6 +641,92 @@ void main() {
     expect(find.text('UTC-12:00'), findsOneWidget);
   });
 
+  testWidgets('keeps the session actions dialog compact', (tester) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(const JanusApp());
+
+    await tester.tap(find.byTooltip('打开或保存会话'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('打开会话'), findsOneWidget);
+    expect(find.text('保存会话'), findsOneWidget);
+    // A two-action prompt must not inherit the transform surface's 920 x 760
+    // cap; it should read as a small card like the other compact dialogs.
+    final surface = tester
+        .getRect(find.byKey(const ValueKey('container-transform-surface')));
+    expect(surface.width, lessThanOrEqualTo(480));
+    expect(surface.height, lessThanOrEqualTo(360));
+  });
+
+  testWidgets('groups session, import, and export in the status bar',
+      (tester) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(const JanusApp());
+
+    final statusBar = find.byKey(const ValueKey('status-bar'));
+    for (final tooltip in ['打开或保存会话', '导入帧配置', '导出帧配置']) {
+      expect(
+        find.descendant(of: statusBar, matching: find.byTooltip(tooltip)),
+        findsOneWidget,
+      );
+    }
+    double actionX(String tooltip) =>
+        tester.getCenter(find.byTooltip(tooltip)).dx;
+    expect(actionX('打开或保存会话'), lessThan(actionX('导入帧配置')));
+    expect(actionX('导入帧配置'), lessThan(actionX('导出帧配置')));
+    expect(actionX('导出帧配置'), lessThan(actionX('打开设置')));
+  });
+
+  testWidgets('splits the build identity into three status pills',
+      (tester) async {
+    tester.view.physicalSize = const Size(600, 480);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(const JanusApp());
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('App $applicationVersion'), findsOneWidget);
+    expect(find.text('Core $coreVersion'), findsOneWidget);
+    expect(find.text('IPC $protocolVersion'), findsOneWidget);
+    expect(
+      find.text(
+          'App $applicationVersion · Core $coreVersion · IPC $protocolVersion'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('renders the frame definition dialog at a compact type scale',
+      (tester) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(const JanusApp());
+
+    final baseTitleSize = Theme.of(tester.element(find.text('发送面板')))
+        .textTheme
+        .headlineSmall!
+        .fontSize!;
+    await tester.tap(find.byTooltip('打开字段模块'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('编辑模板'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('帧定义器'), findsOneWidget);
+    final dialogTitleSize =
+        DefaultTextStyle.of(tester.element(find.text('帧定义器'))).style.fontSize!;
+    expect(dialogTitleSize, lessThan(baseTitleSize));
+    expect(dialogTitleSize, closeTo(baseTitleSize * .85, .1));
+  });
+
   testWidgets('uses rounded hover states for menu options', (tester) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1;
@@ -670,6 +795,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const JanusApp());
 
+    expect(find.byTooltip('打开帧定义器'), findsNothing);
     expect(find.byKey(const ValueKey('field-stream')), findsNothing);
     await tester.tap(find.byTooltip('打开字段模块'));
     await tester.pumpAndSettle();
@@ -705,6 +831,30 @@ void main() {
     tester.view.physicalSize = const Size(1280, 820);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('sizes the template catalog to its content', (tester) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(const JanusApp());
+    await tester.tap(find.byTooltip('打开字段模块'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('模板库 1'));
+    await tester.pumpAndSettle();
+
+    final compact = tester.getRect(
+        find.byKey(const ValueKey('container-transform-surface')).last);
+    expect(compact.width, lessThanOrEqualTo(600));
+    expect(compact.height, lessThanOrEqualTo(420));
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byTooltip('复制模板'));
+    await tester.pumpAndSettle();
+    final grown = tester.getRect(
+        find.byKey(const ValueKey('container-transform-surface')).last);
+    expect(grown.height, greaterThan(compact.height));
   });
 
   test('defaults log timestamps to China Standard Time', () {

@@ -1417,156 +1417,152 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
               content: SizedBox(
                 width: 440,
                 height: contentHeight,
-                child: Scrollbar(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.schedule_rounded),
-                        title: const Text('日志时间时区'),
-                        subtitle: Text(timeZoneLabel(draftOffset)),
+                child: _SettingsScrollView(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.schedule_rounded),
+                      title: const Text('日志时间时区'),
+                      subtitle: Text(timeZoneLabel(draftOffset)),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.tonalIcon(
+                        onPressed: () async {
+                          final offset =
+                              await _chooseTimeZone(context, draftOffset);
+                          if (offset != null) {
+                            setDialogState(() => draftOffset = offset);
+                          }
+                        },
+                        icon: const Icon(Icons.edit_outlined),
+                        label: const Text('修改时区'),
                       ),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: FilledButton.tonalIcon(
-                          onPressed: () async {
-                            final offset =
-                                await _chooseTimeZone(context, draftOffset);
-                            if (offset != null) {
-                              setDialogState(() => draftOffset = offset);
-                            }
-                          },
-                          icon: const Icon(Icons.edit_outlined),
-                          label: const Text('修改时区'),
-                        ),
+                    ),
+                    const Divider(height: 28),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('启动默认值',
+                          style: Theme.of(context).textTheme.titleSmall),
+                    ),
+                    const SizedBox(height: 6),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(draftIsDark
+                          ? Icons.dark_mode_outlined
+                          : Icons.light_mode_outlined),
+                      title: const Text('主题'),
+                      subtitle: Text(draftIsDark ? '深色' : '浅色'),
+                      trailing: SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment(
+                              value: false,
+                              icon: Icon(Icons.light_mode_outlined, size: 16),
+                              label: Text('浅色')),
+                          ButtonSegment(
+                              value: true,
+                              icon: Icon(Icons.dark_mode_outlined, size: 16),
+                              label: Text('深色')),
+                        ],
+                        selected: {draftIsDark},
+                        showSelectedIcon: false,
+                        onSelectionChanged: (value) =>
+                            setDialogState(() => draftIsDark = value.first),
                       ),
-                      const Divider(height: 28),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text('启动默认值',
-                            style: Theme.of(context).textTheme.titleSmall),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.vertical_split_rounded),
+                      title: const Text('左侧 Dock'),
+                      subtitle: Text(draftLeftDockExpanded ? '启动时展开' : '启动时隐藏'),
+                      value: draftLeftDockExpanded,
+                      onChanged: (value) =>
+                          setDialogState(() => draftLeftDockExpanded = value),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.vertical_split_rounded),
+                      title: const Text('右侧 Dock'),
+                      subtitle:
+                          Text(draftRightDockExpanded ? '启动时展开' : '启动时隐藏'),
+                      value: draftRightDockExpanded,
+                      onChanged: (value) =>
+                          setDialogState(() => draftRightDockExpanded = value),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.playlist_play_rounded),
+                      title: const Text('队列编辑面板'),
+                      subtitle: Text(draftQueueExpanded ? '启动时展开' : '启动时隐藏'),
+                      value: draftQueueExpanded,
+                      onChanged: (value) =>
+                          setDialogState(() => draftQueueExpanded = value),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.save_alt_rounded),
+                      title: const Text('实时保存'),
+                      subtitle: Text(draftStartupRealtimeLoggingEnabled
+                          ? '启动时续写上次选择的保存文件'
+                          : '启动时默认关闭'),
+                      value: draftStartupRealtimeLoggingEnabled,
+                      onChanged: (value) => setDialogState(
+                          () => draftStartupRealtimeLoggingEnabled = value),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.refresh_rounded),
+                      title: const Text('异常后自动重连'),
+                      subtitle: const Text('非手动关闭时，2 秒后按当前串口配置重试'),
+                      value: draftAutoReconnect,
+                      onChanged: (value) =>
+                          setDialogState(() => draftAutoReconnect = value),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.fingerprint_rounded),
+                      title: const Text('显示设备信息卡'),
+                      subtitle: const Text('关闭后点击“保存”生效；卡片显示端口描述与硬件 ID'),
+                      value: draftShowHardwareId,
+                      onChanged: (value) =>
+                          setDialogState(() => draftShowHardwareId = value),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.unfold_less_rounded),
+                      title: const Text('打开端口后收起配置'),
+                      subtitle: const Text('连接成功后自动收起串口参数，留出更多数据区空间'),
+                      value: draftAutoCollapsePortConfig,
+                      onChanged: (value) => setDialogState(
+                          () => draftAutoCollapsePortConfig = value),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      secondary: const Icon(Icons.tune_rounded),
+                      title: const Text('显示线路控制'),
+                      subtitle: const Text('保存后生效；连接后显示 DTR、RTS 与 Break 按钮'),
+                      value: draftShowLineControls,
+                      onChanged: (value) =>
+                          setDialogState(() => draftShowLineControls = value),
+                    ),
+                    const Divider(height: 28),
+                    Card(
+                      margin: EdgeInsets.zero,
+                      clipBehavior: Clip.antiAlias,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      const SizedBox(height: 6),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(draftIsDark
-                            ? Icons.dark_mode_outlined
-                            : Icons.light_mode_outlined),
-                        title: const Text('主题'),
-                        subtitle: Text(draftIsDark ? '深色' : '浅色'),
-                        trailing: SegmentedButton<bool>(
-                          segments: const [
-                            ButtonSegment(
-                                value: false,
-                                icon: Icon(Icons.light_mode_outlined, size: 16),
-                                label: Text('浅色')),
-                            ButtonSegment(
-                                value: true,
-                                icon: Icon(Icons.dark_mode_outlined, size: 16),
-                                label: Text('深色')),
-                          ],
-                          selected: {draftIsDark},
-                          showSelectedIcon: false,
-                          onSelectionChanged: (value) =>
-                              setDialogState(() => draftIsDark = value.first),
-                        ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 4),
+                        leading: const Icon(Icons.info_outline_rounded),
+                        title: const Text('关于 JANUS'),
+                        subtitle: const Text('版本、开发者、仓库与版权信息'),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: _showAbout,
                       ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        secondary: const Icon(Icons.vertical_split_rounded),
-                        title: const Text('左侧 Dock'),
-                        subtitle:
-                            Text(draftLeftDockExpanded ? '启动时展开' : '启动时隐藏'),
-                        value: draftLeftDockExpanded,
-                        onChanged: (value) =>
-                            setDialogState(() => draftLeftDockExpanded = value),
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        secondary: const Icon(Icons.vertical_split_rounded),
-                        title: const Text('右侧 Dock'),
-                        subtitle:
-                            Text(draftRightDockExpanded ? '启动时展开' : '启动时隐藏'),
-                        value: draftRightDockExpanded,
-                        onChanged: (value) => setDialogState(
-                            () => draftRightDockExpanded = value),
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        secondary: const Icon(Icons.playlist_play_rounded),
-                        title: const Text('队列编辑面板'),
-                        subtitle: Text(draftQueueExpanded ? '启动时展开' : '启动时隐藏'),
-                        value: draftQueueExpanded,
-                        onChanged: (value) =>
-                            setDialogState(() => draftQueueExpanded = value),
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        secondary: const Icon(Icons.save_alt_rounded),
-                        title: const Text('实时保存'),
-                        subtitle: Text(draftStartupRealtimeLoggingEnabled
-                            ? '启动时续写上次选择的保存文件'
-                            : '启动时默认关闭'),
-                        value: draftStartupRealtimeLoggingEnabled,
-                        onChanged: (value) => setDialogState(
-                            () => draftStartupRealtimeLoggingEnabled = value),
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        secondary: const Icon(Icons.refresh_rounded),
-                        title: const Text('异常后自动重连'),
-                        subtitle: const Text('非手动关闭时，2 秒后按当前串口配置重试'),
-                        value: draftAutoReconnect,
-                        onChanged: (value) =>
-                            setDialogState(() => draftAutoReconnect = value),
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        secondary: const Icon(Icons.fingerprint_rounded),
-                        title: const Text('显示设备信息卡'),
-                        subtitle: const Text('关闭后点击“保存”生效；卡片显示端口描述与硬件 ID'),
-                        value: draftShowHardwareId,
-                        onChanged: (value) =>
-                            setDialogState(() => draftShowHardwareId = value),
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        secondary: const Icon(Icons.unfold_less_rounded),
-                        title: const Text('打开端口后收起配置'),
-                        subtitle: const Text('连接成功后自动收起串口参数，留出更多数据区空间'),
-                        value: draftAutoCollapsePortConfig,
-                        onChanged: (value) => setDialogState(
-                            () => draftAutoCollapsePortConfig = value),
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        secondary: const Icon(Icons.tune_rounded),
-                        title: const Text('显示线路控制'),
-                        subtitle: const Text('保存后生效；连接后显示 DTR、RTS 与 Break 按钮'),
-                        value: draftShowLineControls,
-                        onChanged: (value) =>
-                            setDialogState(() => draftShowLineControls = value),
-                      ),
-                      const Divider(height: 28),
-                      Card(
-                        margin: EdgeInsets.zero,
-                        clipBehavior: Clip.antiAlias,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 4),
-                          leading: const Icon(Icons.info_outline_rounded),
-                          title: const Text('关于 JANUS'),
-                          subtitle: const Text('版本、开发者、仓库与版权信息'),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: _showAbout,
-                        ),
-                      ),
-                    ]),
-                  ),
+                    ),
+                  ]),
                 ),
               ),
               actions: [
@@ -1787,87 +1783,97 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       context: context,
       alignment: Alignment.centerRight,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, refresh) => AlertDialog(
-          title: const Text('协议模板库'),
-          content: SizedBox(
-            width: 520,
-            height: 440,
-            child: Column(children: [
-              Text('模板长度模式会同时识别这里的所有模板；相同帧头可用固定数值字段区分。',
-                  style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _frameTemplates.length,
-                  itemBuilder: (context, index) {
-                    final template = _frameTemplates[index];
-                    final selected = template.id == _frameTemplate.id;
-                    return Card(
-                      child: ListTile(
-                        selected: selected,
-                        leading: Icon(selected
-                            ? Icons.radio_button_checked_rounded
-                            : Icons.radio_button_unchecked_rounded),
-                        title: Text(template.name),
-                        subtitle: Text(
-                            '${template.role.label} · ${template.fields.length} 字段'),
-                        onTap: () {
-                          setState(() => _setFrameTemplate(template));
-                          refresh(() {});
-                          unawaited(_persistFrameTemplates());
-                        },
-                        trailing:
-                            Row(mainAxisSize: MainAxisSize.min, children: [
-                          IconButton(
-                            tooltip: '复制模板',
-                            onPressed: () {
-                              final copy = template.copyWith(
-                                id: DateTime.now()
-                                    .microsecondsSinceEpoch
-                                    .toString(),
-                                name: '${template.name} 副本',
-                                role: FrameRole.other,
-                              );
-                              setState(() => _setFrameTemplate(copy));
+        builder: (context, refresh) {
+          // Size the card to the catalog so a short list does not leave a
+          // large empty panel; longer catalogs scroll under the cap.
+          final listHeight = (_frameTemplates.length * 80.0).clamp(80.0, 320.0);
+          final dialogHeight = (270.0 + listHeight)
+              .clamp(320.0, MediaQuery.sizeOf(context).height - 48);
+          return SizedBox(
+            width: 560,
+            height: dialogHeight,
+            child: AlertDialog(
+              title: const Text('协议模板库'),
+              content: SizedBox(
+                width: 432,
+                child: Column(children: [
+                  Text('模板长度模式会同时识别这里的所有模板；相同帧头可用固定数值字段区分。',
+                      style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _frameTemplates.length,
+                      itemBuilder: (context, index) {
+                        final template = _frameTemplates[index];
+                        final selected = template.id == _frameTemplate.id;
+                        return Card(
+                          child: ListTile(
+                            selected: selected,
+                            leading: Icon(selected
+                                ? Icons.radio_button_checked_rounded
+                                : Icons.radio_button_unchecked_rounded),
+                            title: Text(template.name),
+                            subtitle: Text(
+                                '${template.role.label} · ${template.fields.length} 字段'),
+                            onTap: () {
+                              setState(() => _setFrameTemplate(template));
                               refresh(() {});
                               unawaited(_persistFrameTemplates());
                             },
-                            icon: const Icon(Icons.copy_rounded),
+                            trailing:
+                                Row(mainAxisSize: MainAxisSize.min, children: [
+                              IconButton(
+                                tooltip: '复制模板',
+                                onPressed: () {
+                                  final copy = template.copyWith(
+                                    id: DateTime.now()
+                                        .microsecondsSinceEpoch
+                                        .toString(),
+                                    name: '${template.name} 副本',
+                                    role: FrameRole.other,
+                                  );
+                                  setState(() => _setFrameTemplate(copy));
+                                  refresh(() {});
+                                  unawaited(_persistFrameTemplates());
+                                },
+                                icon: const Icon(Icons.copy_rounded),
+                              ),
+                              IconButton(
+                                tooltip: '删除模板',
+                                onPressed: _frameTemplates.length == 1
+                                    ? null
+                                    : () {
+                                        setState(() {
+                                          _frameTemplates.removeAt(index);
+                                          if (selected) {
+                                            _setFrameTemplate(
+                                                _frameTemplates.first);
+                                          } else {
+                                            _configureFrameRecognition();
+                                            _rebuildFrameAnalysis();
+                                          }
+                                        });
+                                        refresh(() {});
+                                        unawaited(_persistFrameTemplates());
+                                      },
+                                icon: const Icon(Icons.delete_outline_rounded),
+                              ),
+                            ]),
                           ),
-                          IconButton(
-                            tooltip: '删除模板',
-                            onPressed: _frameTemplates.length == 1
-                                ? null
-                                : () {
-                                    setState(() {
-                                      _frameTemplates.removeAt(index);
-                                      if (selected) {
-                                        _setFrameTemplate(
-                                            _frameTemplates.first);
-                                      } else {
-                                        _configureFrameRecognition();
-                                        _rebuildFrameAnalysis();
-                                      }
-                                    });
-                                    refresh(() {});
-                                    unawaited(_persistFrameTemplates());
-                                  },
-                            icon: const Icon(Icons.delete_outline_rounded),
-                          ),
-                        ]),
-                      ),
-                    );
-                  },
-                ),
+                        );
+                      },
+                    ),
+                  ),
+                ]),
               ),
-            ]),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('完成')),
-          ],
-        ),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text('完成')),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -2068,6 +2074,7 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
     await _showContainerTransformDialog<void>(
       context: context,
       alignment: Alignment.topCenter,
+      textScale: .85,
       builder: (dialogContext) =>
           StatefulBuilder(builder: (context, setDialogState) {
         final parsed = ProtocolFrameParser(FrameTemplate(
@@ -2642,33 +2649,46 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
   Future<void> _showSessionActions() => _showContainerTransformDialog<void>(
         context: context,
         alignment: Alignment.centerRight,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('会话'),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            ListTile(
-              leading: const Icon(Icons.folder_open_rounded),
-              title: const Text('打开会话'),
-              onTap: () {
-                Navigator.pop(dialogContext);
-                unawaited(_openSession());
-              },
+        builder: (dialogContext) {
+          // This is a two-action prompt, so pin the transform surface to the
+          // content card. Without tight bounds Dialog's internal Align expands
+          // to the transition cap (920 x 760) and leaves the tiles floating in
+          // an oversized panel.
+          final dialogHeight = (MediaQuery.sizeOf(context).height - 48)
+              .clamp(300.0, 340.0)
+              .toDouble();
+          return SizedBox(
+            width: 420,
+            height: dialogHeight,
+            child: AlertDialog(
+              title: const Text('会话'),
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                ListTile(
+                  leading: const Icon(Icons.folder_open_rounded),
+                  title: const Text('打开会话'),
+                  onTap: () {
+                    Navigator.pop(dialogContext);
+                    unawaited(_openSession());
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.save_rounded),
+                  title: const Text('保存会话'),
+                  onTap: () {
+                    Navigator.pop(dialogContext);
+                    unawaited(_saveSession());
+                  },
+                ),
+              ]),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('取消'),
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.save_rounded),
-              title: const Text('保存会话'),
-              onTap: () {
-                Navigator.pop(dialogContext);
-                unawaited(_saveSession());
-              },
-            ),
-          ]),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('取消'),
-            ),
-          ],
-        ),
+          );
+        },
       );
 
   Widget _connectionChip() {
@@ -2774,13 +2794,6 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
             destinations: const [
               _RailDestination(Icons.data_object_rounded, '字段'),
               _RailDestination(Icons.verified_user_rounded, '校验'),
-              _RailDestination(Icons.folder_copy_rounded, '会话',
-                  tooltip: '打开或保存会话'),
-              _RailDestination(Icons.account_tree_rounded, '帧定义',
-                  tooltip: '打开帧定义器'),
-              _RailDestination(Icons.upload_file_rounded, '导入',
-                  tooltip: '导入帧配置'),
-              _RailDestination(Icons.download_rounded, '导出', tooltip: '导出帧配置'),
             ],
             selectedIndex: _rightRailIndex,
             onSelected: (value) {
@@ -2800,15 +2813,6 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
               if (value == 1) {
                 _toggleIntegrityPanel();
                 return;
-              }
-              if (value == 2) {
-                unawaited(_showSessionActions());
-              } else if (value == 3) {
-                unawaited(_showFrameDefinitionDialog());
-              } else if (value == 4) {
-                unawaited(_importFrameTemplate());
-              } else if (value == 5) {
-                unawaited(_exportFrameTemplate());
               }
             },
             scheme: scheme,
@@ -3928,6 +3932,15 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
           // giving the stream its last few pixels instead of overflowing.
           final compactToolbar = constraints.maxHeight < 120;
           final visibleEntries = _visibleRawEntries;
+          // Empty-state copy uses the Chinese face as the primary font so
+          // fallback metrics cannot crowd the glyph tops on the dark surface,
+          // and gets extra leading so the line box never looks clipped.
+          final emptyStateStyle = TextStyle(
+            color: scheme.onSurfaceVariant,
+            fontFamily: JanusTheme.chineseFontFamily,
+            fontWeight: FontWeight.w500,
+            height: 1.5,
+          );
           return Container(
             key: const ValueKey('receive-stream'),
             decoration: BoxDecoration(
@@ -3966,13 +3979,11 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
                                 _playbackEntries == null
                                     ? '打开串口后，实时 RX/TX 数据将在此显示'
                                     : '会话已载入，点击播放或单步查看记录',
-                                style:
-                                    TextStyle(color: scheme.onSurfaceVariant)))
+                                style: emptyStateStyle))
                         : visibleEntries.isEmpty
                             ? Center(
                                 child: Text('没有匹配当前筛选条件的日志',
-                                    style: TextStyle(
-                                        color: scheme.onSurfaceVariant)))
+                                    style: emptyStateStyle))
                             : ListView.builder(
                                 controller: _streamController,
                                 padding: const EdgeInsets.all(8),
@@ -4922,17 +4933,27 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
         if (_trimmedEntryCount > 0) item('已滚动移除', '$_trimmedEntryCount 条'),
       ],
     );
-    final buildIdentity = statusPill(Text(
-      'App $applicationVersion · Core $coreVersion · IPC $protocolVersion',
-      maxLines: 1,
-      overflow: TextOverflow.fade,
-      softWrap: false,
-      style: TextStyle(
-        color: scheme.onSurfaceVariant,
-        fontFamily: JanusTheme.latinFontFamily,
-        fontSize: 10.5,
-      ),
-    ));
+    Widget identityPill(String text) => statusPill(Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.fade,
+          softWrap: false,
+          style: TextStyle(
+            color: scheme.onSurfaceVariant,
+            fontFamily: JanusTheme.latinFontFamily,
+            fontSize: 10.5,
+          ),
+        ));
+    final buildIdentity = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        identityPill('App $applicationVersion'),
+        const SizedBox(width: 5),
+        identityPill('Core $coreVersion'),
+        const SizedBox(width: 5),
+        identityPill('IPC $protocolVersion'),
+      ],
+    );
     Widget statusAction(
       IconData icon,
       String tooltip,
@@ -4992,6 +5013,24 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
       mainAxisSize: MainAxisSize.min,
       children: [
         portSummary,
+        // File actions live beside the port summary; app settings and theme
+        // stay at the end of the same bottom-left cluster.
+        statusAction(
+          Icons.folder_copy_rounded,
+          '打开或保存会话',
+          () => unawaited(_showSessionActions()),
+        ),
+        statusAction(
+          Icons.upload_file_rounded,
+          '导入帧配置',
+          () => unawaited(_importFrameTemplate()),
+        ),
+        statusAction(
+          Icons.download_rounded,
+          '导出帧配置',
+          () => unawaited(_exportFrameTemplate()),
+        ),
+        const SizedBox(width: 6),
         statusAction(
           Icons.settings_outlined,
           '打开设置',
@@ -5023,6 +5062,24 @@ class _WorkbenchScreenState extends State<WorkbenchScreen>
             buildIdentity,
           ]);
         }
+        // Under the supported minimum window width, let the build identity
+        // scroll together with the metrics instead of overflowing the row.
+        if (constraints.maxWidth < 560) {
+          return Row(children: [
+            leftActions,
+            const SizedBox(width: 10),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [
+                  metrics,
+                  const SizedBox(width: 10),
+                  buildIdentity,
+                ]),
+              ),
+            ),
+          ]);
+        }
         return Row(children: [
           leftActions,
           const SizedBox(width: 10),
@@ -5052,6 +5109,7 @@ Future<T?> _showContainerTransformDialog<T>({
   Alignment alignment = Alignment.center,
   bool barrierDismissible = true,
   Color? barrierColor,
+  double textScale = 1,
 }) =>
     showGeneralDialog<T>(
       context: context,
@@ -5062,7 +5120,21 @@ Future<T?> _showContainerTransformDialog<T>({
       // The transition already positions the dialog. Wrapping this child in
       // SafeArea + Center makes the animation's decorated container inherit
       // the entire route size, which turns a dialog into a full-window sheet.
-      pageBuilder: (routeContext, _, __) => builder(routeContext),
+      // Dense editors can opt into a smaller local type scale instead of
+      // inheriting Material's larger dialog text styles.
+      pageBuilder: (routeContext, _, __) {
+        final child = builder(routeContext);
+        if (textScale == 1) return child;
+        final theme = Theme.of(routeContext);
+        return Theme(
+          data: theme.copyWith(
+            textTheme: theme.textTheme.apply(fontSizeFactor: textScale),
+            primaryTextTheme:
+                theme.primaryTextTheme.apply(fontSizeFactor: textScale),
+          ),
+          child: child,
+        );
+      },
       transitionBuilder: (context, animation, secondaryAnimation, child) =>
           _ContainerTransformTransition(
         animation: animation,
@@ -5325,6 +5397,35 @@ class _RailDestination {
   final String? tooltip;
 }
 
+class _SettingsScrollView extends StatefulWidget {
+  const _SettingsScrollView({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_SettingsScrollView> createState() => _SettingsScrollViewState();
+}
+
+class _SettingsScrollViewState extends State<_SettingsScrollView> {
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scrollbar(
+        controller: _controller,
+        child: SingleChildScrollView(
+          controller: _controller,
+          padding: const EdgeInsets.only(bottom: 16),
+          child: widget.child,
+        ),
+      );
+}
+
 class _AboutDetail extends StatelessWidget {
   const _AboutDetail({required this.label, required this.value});
 
@@ -5365,14 +5466,21 @@ class _AboutJanusDialog extends StatelessWidget {
       width: 560,
       height: (MediaQuery.sizeOf(context).height - 96).clamp(360.0, 680.0),
       child: AlertDialog(
-        icon: Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: scheme.primaryContainer,
-            shape: BoxShape.circle,
+        icon: Center(
+          child: Container(
+            width: 52,
+            height: 52,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: scheme.outlineVariant),
+            ),
+            child: Image.asset(
+              'Image/JANUS_ICON.png',
+              fit: BoxFit.contain,
+              semanticLabel: 'JANUS 图标',
+            ),
           ),
-          child: Icon(Icons.memory_rounded, color: scheme.onPrimaryContainer),
         ),
         title: const Text('关于 JANUS', style: chinese),
         content: SizedBox(
@@ -5399,13 +5507,26 @@ class _AboutJanusDialog extends StatelessWidget {
                       style: chinese.copyWith(color: scheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      'JANUS · TITAN Universe',
-                      style: chinese.copyWith(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: scheme.primary,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'Image/TITAN_ICON.png',
+                          height: 24,
+                          color: scheme.primary,
+                          colorBlendMode: BlendMode.srcIn,
+                          semanticLabel: 'TITAN 图标',
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'JANUS · TITAN Universe',
+                          style: chinese.copyWith(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.primary,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(

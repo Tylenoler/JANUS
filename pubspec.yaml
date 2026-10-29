@@ -24,6 +24,8 @@ flutter:
   assets:
     - Image/JANUS_LOGO_black.png
     - Image/JANUS_LOGO_white.png
+    - Image/JANUS_ICON.png
+    - Image/TITAN_ICON.png
   fonts:
     - family: Cascadia Code
       fonts:
